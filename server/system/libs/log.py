@@ -6,7 +6,7 @@ log.propagate = True
 
 handler = logging.FileHandler("./logs/main_log", mode = "w")
 handler.setLevel(10)
-handler.setFormatter(logging.Formatter("%(module)s | %(asctime)s [%(levelname)s]: %(message)s"))
+handler.setFormatter(logging.Formatter("%(module)s, line %(lineno)d | %(asctime)s [%(levelname)s]: %(message)s"))
 
 log.addHandler(handler)
 

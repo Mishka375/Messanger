@@ -48,9 +48,6 @@ sql_request_queue = Gauge (
     "SQL request queue"
 )
 
-start_http_server(8001)
-print("Мониторинг запущен")
-
 
 """
 

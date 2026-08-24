@@ -1,24 +1,28 @@
 services:
     backend:
         build:
-            context: ./server/system
+            context: ./system
             dockerfile: Dockerfile
         container_name: backend
         ports:
             - 8000:8000
-            - 8001:8001
+            - 70:70
+            - 71:71
         stdin_open: true
         tty: true
         environment:
-            DATABASE_HOST_CHATS: chats_db
             DATABASE_HOST_USERS: users_db
-            DATABASE_PORT: 5432
             DATABASE_NAME_USERS: users
+
+            DATABASE_HOST_CHATS: chats_db
             DATABASE_NAME_CHATS: chats
+
+            DATABASE_PORT: 5432
             DATABASE_USER: postgres
             DATABASE_PASSWORD: password
-            REDIS_HOST: redis
-            REDIS_PORT: 6379
+
+            REDIS_HOST_SESSIONS: redis_sessions
+            REDIS_PORT_SESSIONS: 6379
         depends_on:
             users_db:
                 condition: service_healthy
@@ -35,7 +39,7 @@ services:
         container_name: users_db
         volumes:
             - users_data:/var/lib/postgresql
-            - ./server/database/users/db_init:/docker-entrypoint-initdb.d
+            - ./database/users/db_init:/docker-entrypoint-initdb.d
         environment:
             POSTGRES_DB: users
             POSTGRES_USER: postgres
@@ -54,7 +58,7 @@ services:
         container_name: chats_db
         volumes:
             - chats_data:/var/lib/postgresql
-            - ./server/database/chats/db_init:/docker-entrypoint-initdb.d
+            - ./database/chats/db_init:/docker-entrypoint-initdb.d
         environment:
             POSTGRES_DB: chats
             POSTGRES_USER: postgres
@@ -70,9 +74,9 @@ services:
 
 
 
-    redis:
+    redis_sessions:
         image: redis:8-alpine
-        container_name: redis
+        container_name: redis_sessions
         networks:
             - local
         restart: unless-stopped
@@ -81,7 +85,7 @@ services:
         image: prom/prometheus
         container_name: prometheus
         volumes:
-            - ./server/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+            - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
         ports:
             - "9091:9090"
         healthcheck:

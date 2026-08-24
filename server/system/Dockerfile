@@ -6,5 +6,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY libs/ ./libs/
 COPY monitoring.py .
 COPY database.py .
-COPY init.py .
+COPY system.py .
+COPY monitor.py .
 COPY logs/ ./logs/
+
+CMD ["python", "monitor.py"]
