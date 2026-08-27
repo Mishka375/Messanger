@@ -28,7 +28,7 @@ def new_sender ():
 
     while 1:
         conn = chat.accept()
-        chat.send_all("# Chat Connect", conn)
+        chat.send_all("1", conn)
         key = chat.get_message(user = conn)
         id = database.redis_sessions_get(key)
         connects[id] = conn
@@ -156,15 +156,17 @@ def new_chat (key, user_link, name):
         database.users_execute("SELECT id FROM personal WHERE identificator=%s;", (user_link,))
         id_2 = database.cursor_users.fetchone()
 
-        if int(id_1) != int(id_2) and id_2 is not None:
-            database.chats_execute("INSERT INTO chats (name, user_1, user_2) VALUES (%s, %s, %s);", (name, id_1, id_2[0]))
+        if id_2 is None:
+            log.log.warning("Link is incorrect")
+            raise errors.IncorrectEnter("Link is incorrect")
+        
+        id_2 = id_2[0]
+
+        if int(id_1) != int(id_2):
+            database.chats_execute("INSERT INTO chats (name, user_1, user_2) VALUES (%s, %s, %s);", (name, id_1, id_2))
             log.log.debug(f"Chat {name} was created")
 
-        elif id_2 is None:
-            log.log.warning("User is not found")
-            raise errors.IncorrectEnter("User unfound")
-
-        elif id_1 == id_2[0]:
+        else:
             log.log.warning(f"Chat {name} wasn't created, same id")
             raise errors.ChatError("One user in chat")
 
