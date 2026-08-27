@@ -10,4 +10,4 @@ COPY system.py .
 COPY monitor.py .
 COPY logs/ ./logs/
 
-CMD ["python", "monitor.py"]
+CMD ["python", "system.py"]

@@ -1,3 +1,7 @@
+# 100
+class RedisError (Exception):
+    pass
+
 # 101
 class RedisDataError (Exception):
     pass
@@ -9,6 +13,7 @@ class RedisTimeoutError (Exception):
 # 103
 class RedisBusyError (Exception):
     pass
+
 
 
 
@@ -36,6 +41,11 @@ class SQLDataError (Exception):
 
 
 
+
+# 300
+class IncorrectData (Exception):
+    pass
+
 # 301
 class IncorrectLogin (Exception):
     pass
@@ -55,6 +65,3 @@ class IncorrectKey (Exception):
 # 400
 class ChatError (Exception):
     pass
-
-
-

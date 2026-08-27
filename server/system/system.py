@@ -156,7 +156,7 @@ def new_chat (key, user_link, name):
         database.users_execute("SELECT id FROM personal WHERE identificator=%s;", (user_link,))
         id_2 = database.cursor_users.fetchone()
 
-        if id_1 != id_2 and id_2 is not None:
+        if int(id_1) != int(id_2) and id_2 is not None:
             database.chats_execute("INSERT INTO chats (name, user_1, user_2) VALUES (%s, %s, %s);", (name, id_1, id_2[0]))
             log.log.debug(f"Chat {name} was created")
 
@@ -364,19 +364,22 @@ def users_active (conn, bufsize: int = 1024):
         log.log.error(error)
         serv.send("0", conn)
 
-class Active:
-    def __init__ (self, function = users_active):
-        self.thread = None
-        self.target = function
-        self.daemon = True
+def main_way():
+    while 1:
+        conn = serv.accept()
+        log.log.info("new connect")
+        local_server =  threading.Thread(target = users_active, daemon = True, args = (conn,))
+        local_server.start()
 
-    def start (self, conn):
-        self.thread = threading.Thread(target = self.target, daemon = self.daemon, args = (conn,))
-        self.thread.start()
-        log.log.debug("new thread")
+main_way = threading.Thread(target = main_way, daemon = True)
 
 try:
     monitoring.start_http_server(8000)
+    main_way.start()
     print("Monitoring is started")
+
+    while 1:
+        pass
+
 except Exception:
     None

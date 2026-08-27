@@ -2,7 +2,7 @@ from libs import server
 from libs.server import log
 import threading, time
 
-HOST = "192.168.0.20"
+HOST = "192.168.0.22"
 SERV_PORT = 70
 CHAT_PORT = 71
 
@@ -59,7 +59,7 @@ def print_error(error_code):
 
         case 0:
             error = "Correct"
-    print(error)
+    print(f"# {error}")
 
 
 def get_messages (key):
@@ -126,6 +126,7 @@ try:
                                 user_name = data[1]
 
                                 chat = threading.Thread(target = get_messages, daemon = True, args = (session_key,))
+                                chat.start()
                             
                         print_error(correct)
 
@@ -165,7 +166,6 @@ try:
                     if not correct:
                         chat_id = conn.get_message()
                         in_chat = 1
-                        chat.start()
                     else:
                         print_error(correct)
 
@@ -183,6 +183,7 @@ try:
 
                     in_chat = 0
                     chat_id = None
+                    chat_name = None
 
                 except Exception as error:
                     log.log.error(error)
@@ -203,9 +204,6 @@ try:
                 else:
                     None
 
-            case "whoami":
-                print(session_key, user_name)
-            
             case "exit":
                 connect = 0
                 break
