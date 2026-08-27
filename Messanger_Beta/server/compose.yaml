@@ -1,0 +1,120 @@
+services:
+    backend:
+        build:
+            context: ./system
+            dockerfile: Dockerfile
+        container_name: backend
+        ports:
+            - 8000:8000
+            - 70:70
+            - 71:71
+        stdin_open: true
+        tty: true
+        environment:
+            DATABASE_HOST_USERS: users_db
+            DATABASE_NAME_USERS: users
+
+            DATABASE_HOST_CHATS: chats_db
+            DATABASE_NAME_CHATS: chats
+
+            DATABASE_PORT: 5432
+            DATABASE_USER: postgres
+            DATABASE_PASSWORD: password
+
+            REDIS_HOST_SESSIONS: redis_sessions
+            REDIS_PORT_SESSIONS: 6379
+        depends_on:
+            users_db:
+                condition: service_healthy
+            chats_db:
+                condition: service_healthy
+        networks:
+            - local
+        restart: unless-stopped
+
+
+
+    users_db:
+        image: postgres:18-alpine
+        container_name: users_db
+        volumes:
+            - users_data:/var/lib/postgresql
+            - ./database/users/db_init:/docker-entrypoint-initdb.d
+        environment:
+            POSTGRES_DB: users
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: password
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres -d users"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - local
+        restart: unless-stopped
+
+    chats_db:
+        image: postgres:18-alpine
+        container_name: chats_db
+        volumes:
+            - chats_data:/var/lib/postgresql
+            - ./database/chats/db_init:/docker-entrypoint-initdb.d
+        environment:
+            POSTGRES_DB: chats
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: password
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres -d chats"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - local
+        restart: unless-stopped
+
+
+
+    redis_sessions:
+        image: redis:8-alpine
+        container_name: redis_sessions
+        networks:
+            - local
+        restart: unless-stopped
+
+    prometheus:
+        image: prom/prometheus
+        container_name: prometheus
+        volumes:
+            - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+        ports:
+            - "9091:9090"
+        healthcheck:
+            test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/ready"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - local
+        restart: unless-stopped
+
+    grafana:
+        image: grafana/grafana
+        container_name: grafana
+        ports:
+            - "3000:3000"
+        volumes:
+            - grafana_data:/var/lib/grafana
+        depends_on:
+            prometheus:
+                condition: service_healthy
+        networks:
+            - local
+        restart: unless-stopped
+
+volumes:
+    users_data:
+    chats_data:
+    grafana_data:
+
+networks:
+    local:
