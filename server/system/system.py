@@ -1,6 +1,6 @@
 import monitoring, database
-from libs import log, gui, server
-import time, threading
+from libs import log, gui, server, errors
+import time, threading, uuid
 
 HOST = "0.0.0.0"
 SERV_PORT = 70
@@ -18,7 +18,10 @@ database.users_execute("SELECT COUNT(*) FROM users;")
 count = database.cursor_users.fetchone()[0]
 monitoring.users_total.set(int(count))
 
-connects ={}
+connects = {}
+
+def key_gen () -> str:
+    return str(uuid.uuid4())
 
 def new_sender ():
     global chat, connects
@@ -40,19 +43,32 @@ def register (login, password, name):
     try:
         database.users_execute("INSERT INTO users (login, password) VALUES (%s, %s);", (login, password))
         database.users_execute("SELECT id FROM users WHERE login=%s;", (login,))
-        id = database.cursor_users.fetchone()[0]
-        current = database.users_execute("INSERT INTO personal VALUES (%s, %s, %s);", (id, "^"+login, name))
+        id = database.cursor_users.fetchone()
+
+        if id is None:
+            log.log.warning("User is not found")
+            raise errors.IncorrectEnter("User is not found")
+
+        id = id[0]
+
+        database.users_execute("INSERT INTO personal VALUES (%s, %s, %s);", (id, "^"+login, name))
         
         monitoring.users_total.inc()
         
         log.log.debug(f"User {name} is created (ID: {id})")
 
-        return current
-        
+    except errors.SQLValueExist as error:
+        log.log.error(error)
+        raise errors.IncorrectLogin("Login is exist")
+
+    except errors.SQLValueIsNull as error:
+        log.log.error(error)
+        raise errors.IncorrectLogin("Login is null")
+
     except Exception as error:
-        monitoring.sql_request_errors.inc()
-        log.log.error(f"Enters error: {error}")
-        return 0
+        log.log.error(error)
+        raise
+
     finally:
         monitoring.sql_request_time.observe(time.time() - start)
 
@@ -61,27 +77,33 @@ def enter (login, password, conn):
 
     try:
         database.users_execute("SELECT id FROM users WHERE login=%s AND password=%s;", (login, password))
-        id = database.cursor_users.fetchone()[0]
+        id = database.cursor_users.fetchone()
+
+        if id is None:
+            raise errors.IncorrectEnter("Incorrect login or password")
+
+        id = id[0]
         
-        if id:
-            key = f"{login}:{id}"
-            
-            database.redis_sessions_set(key, id)
+        key = key_gen()
 
-            monitoring.users_online.inc()
+        if database.redis_sessions_get(key) is not None:
+            log.log.warning ("Key is exist")
+            raise errors.IncorrectKey("Key is exist")
 
-            database.users_execute('SELECT name FROM personal WHERE id=%s;', (id, ))
-            
-            log.log.debug(f"User {database.cursor_users.fetchone()[0]} enter (key: {key});")
-            return key
-        else:
-            log.log.warning("Incorrect password or login")
-            return 0
-            
+        database.redis_sessions_set(key, id)
+        monitoring.users_online.inc()
+        database.users_execute('SELECT name FROM personal WHERE id=%s;', (id, ))
+        log.log.debug(f"User {database.cursor_users.fetchone()[0]} enter (key: {key});")
+        return key
+
+    except errors.DataError as error:
+        log.log.error(error)
+        raise
+        
     except Exception as error:
-        monitoring.sql_request_errors.inc()
-        log.log.error(f"Enters error: {error}")
-        return 0
+        log.log.error(error)
+        raise
+
     finally:
         monitoring.sql_request_time.observe(time.time() - start)
 
@@ -91,54 +113,65 @@ def out (key):
     
     try:
         id = database.redis_sessions_get(key)
-        database.users_execute("SELECT name FROM personal WHERE id=%s;", (id,))
-        result = database.cursor_users.fetchone()[0]
         
-        if result:
+        if id is not None:
+            id = id[0]
+
+            database.users_execute("SELECT name FROM personal WHERE id=%s;", (id,))
+            result = database.cursor_users.fetchone()
+
+            if result is None:
+                log.log.warning("User is not found")
+                raise errors.IncorrectEnter("User unfound")
+            
             monitoring.users_online.dec()
-            id = database.redis_sessions_get(key)
             database.redis_sessions_del(key)
             del connects[id]
-            
+                
             log.log.debug(f"User {result} is exit")
 
-            return 1
         else:
-            log.log.warning("Incorrect key")
-            return 0
+            log.log.warning("Key is incorrect")
+            raise errors.IncorrectKey("Key is incorrect")
             
     except Exception as error:
-        monitoring.sql_request_errors.inc()
-        log.log.error(f"Enters error: {error}")
-        return 0
+        log.log.error(error)
+        raise
+
     finally:
         monitoring.sql_request_time.observe(time.time() - start)
 
 def new_chat (key, user_link, name):
     start = time.time()
 
-    current = None
-    
     try:
         id_1 = database.redis_sessions_get(key)
+
+        if id_1 is None:
+            log.log.warning("Key is not exist")
+            raise errors.IncorrectKey("Key is not exist")
+        
+        id_1 = id_1[0]
+
         database.users_execute("SELECT id FROM personal WHERE identificator=%s;", (user_link,))
-        id_2 = database.cursor_users.fetchone()[0]
+        id_2 = database.cursor_users.fetchone()
 
-        log.log.debug(f"__________________________{id_1, id_2}___________________________")
-
-        if id_1 != id_2 and id_2:
-            current = database.chats_execute("INSERT INTO chats (name, user_1, user_2) VALUES (%s, %s, %s);", (name, id_1, id_2))
+        if id_1 != id_2 and id_2 is not None:
+            database.chats_execute("INSERT INTO chats (name, user_1, user_2) VALUES (%s, %s, %s);", (name, id_1, id_2[0]))
             log.log.debug(f"Chat {name} was created")
-        else:
-            current = 0
-            log.log.warning(f"Chat {name} wasn't created, same id")
 
-        return current
-    
+        elif id_2 is None:
+            log.log.warning("User is not found")
+            raise errors.IncorrectEnter("User unfound")
+
+        elif id_1 == id_2[0]:
+            log.log.warning(f"Chat {name} wasn't created, same id")
+            raise errors.ChatError("One user in chat")
+
     except Exception as error:
-        monitoring.sql_request_errors.inc()
-        log.log.error(f"Enters error: {error}")
-        return 0
+        log.log.error(error)
+        raise
+
     finally:
         monitoring.sql_request_time.observe(time.time() - start)
 
@@ -148,31 +181,51 @@ def choose_chat (key, chat_name):
     try:
         id = database.redis_sessions_get(key)
 
+        if id is None:
+            log.log.warning("Key is not exist")
+            raise errors.IncorrectKey("Key is not exist")
+
+        id = id[0]
+
         database.chats_execute("SELECT id FROM chats WHERE name=%s AND (user_1 = %s OR user_2 = %s);", (chat_name, id, id))
-        chat_id = database.cursor_chats.fetchone()[0]
+        chat_id = database.cursor_chats.fetchone()
+
+        if chat_id is None:
+            log.log.warning("Chat is not found")
+            raise errors.ChatError("Chat is not found")
+
         log.log.debug(f"Chat {chat_name} is chossed")
+        return chat_id[0]
     
     except Exception as error:
         chat_id = None
-        monitoring.sql_request_errors.inc()
-        log.log.error(f"Enters error: {error}")
-        return 0
+        log.log.error(error)
+        raise
+
     finally:
         monitoring.sql_request_time.observe(time.time() - start)
-        return chat_id
 
 def message (key, chat_id, message):
     global connects
     start = time.time()
     
-    current = None
-
     try:
         sender_id = database.redis_sessions_get(key)
-        current = database.chats_execute("INSERT INTO messages (user_id, chat_id, text) VALUES (%s, %s, %s);", (sender_id, chat_id, message))
+        
+        if sender_id is None:
+            log.log.warning("Key is not exist")
+            raise errors.IncorrectKey("Key is not exist")
+        
+        sender_id = sender_id[0]
+
+        database.chats_execute("INSERT INTO messages (user_id, chat_id, text) VALUES (%s, %s, %s);", (sender_id, chat_id, message))
 
         database.chats_execute("SELECT user_1, user_2 FROM chats WHERE id=%s", (chat_id,))
         data = database.cursor_chats.fetchone()
+
+        if data is None:
+            log.log.warning("Chat is not found")
+            raise errors.ChatError("Chat is not found")
 
         interlocur_id = data[0] if data[0] != int(sender_id) else data[1]
         interlocur_conn = connects[str(interlocur_id)]
@@ -180,27 +233,24 @@ def message (key, chat_id, message):
 
         log.log.debug(f"Message {message} was sended")
         monitoring.messages_count.inc()
-
-        return current
     
     except Exception as error:
         monitoring.sql_request_errors.inc()
-        log.log.error(f"Enters error: {error}")
-        return 0
+        log.log.error(error)
+        raise
+
     finally:
         monitoring.sql_request_time.observe(time.time() - start)
 
 def check_session(key):
-    if database.redis_sessions_get(key):
+    if database.redis_sessions_get(key) is not None:
         return True
     return False
 
 
 def users_active (conn, bufsize: int = 1024):
     try:
-        serv.send("Connect", conn)
-
-        current = 0
+        serv.send("1", conn)
 
         while 1:
             data = serv.get_message(user = conn)
@@ -208,50 +258,111 @@ def users_active (conn, bufsize: int = 1024):
 
             match data[0]:
                 case "register":
-                    current = register(data[1], data[2], data[3])
-                    serv.send(str(current), conn)
+                    try:
+                        register(data[1], data[2], data[3])
+                        serv.send("0", conn)
+
+                    except errors.IncorrectLogin:
+                        serv.send("301", conn)
+
+                    except Exception:
+                        serv.send("1", conn)
 
                 case "enter":
-                    session_key = enter(data[1], data[2], conn)
+                    try:
+                        session_key = enter(data[1], data[2], conn)
 
-                    id = database.redis_sessions_get(session_key)
+                        id = database.redis_sessions_get(session_key)
 
-                    if session_key:
+                        if id is None:
+                            serv.send("303", conn)
+                            continue
+
                         database.users_execute("SELECT name FROM personal WHERE id=%s", (id,))
-                        user_name = database.cursor_users.fetchone()[0]
-                    else:
-                        user_name = 0
+                        user_name = database.cursor_users.fetchone()
 
-                    current = 1 if user_name else 0
+                        if user_name is None:
+                            serv.send("302", conn)
+                            continue
 
-                    serv.send(f"{session_key}*;:;*{user_name}", conn)
-                    time.sleep(0.1)
-                    serv.send(str(current), conn)
+                        serv.send("0", conn)
+                        time.sleep(0.1)
+                        serv.send(f"{session_key}*;:;*{user_name[0]}", conn)
 
+                    except errors.IncorrectEnter:
+                        serv.send("302", conn)
+
+                    except errors.IncorrectKey:
+                        serv.send("303", conn)
+
+                    except Exception:
+                        serv.send("1", conn)
+                        
                 case "new_chat":
-                    current = new_chat(data[1], data[2], data[3])
-                    serv.send(str(current), conn)
+                    try:
+                        current = new_chat(data[1], data[2], data[3])
+                        serv.send("0", conn)
+
+                    except errors.IncorrectEnter:
+                        serv.send("302", conn)
+
+                    except errors.IncorrectKey:
+                        serv.send("303", conn)
+
+                    except errors.ChatError:
+                        serv.send("400", conn)
+
+                    except Exception:
+                        serv.send("1", conn)
 
                 case "choose_chat":
-                    chat_id = choose_chat(data[1], data[2])
+                    try:
+                        chat_id = choose_chat(data[1], data[2])
 
-                    current = 1 if chat_id else 0
+                        serv.send("0", conn)
+                        time.sleep(0.1)
+                        serv.send(f"{chat_id}", conn)
 
-                    serv.send(f"{chat_id}", conn)
-                    time.sleep(0.1)
-                    serv.send(str(current), conn)
+                    except errors.IncorrectKey:
+                        serv.send("303", conn)
+
+                    except errors.ChatError:
+                        serv.send("400", conn)
+
+                    except Exception:
+                        serv.send("1", conn)
 
                 case "message":
-                    current = message(data[1], data[2], data[3])
-                    serv.send(str(current), conn)
+                    try:
+                        message(data[1], data[2], data[3])
+                        serv.send("0", conn)
+
+                    except errors.IncorrectKey:
+                        serv.send("303", conn)
+
+                    except errors.ChatError:
+                        serv.send("400", conn)
+
+                    except Exception:
+                        serv.send("1", conn)
                 
                 case "out":
-                    current = out(data[1])
-                    serv.send(str(current), conn)
+                    try:
+                        out(data[1])
+                        serv.send("0", conn)
+
+                    except errors.IncorrectEnter:
+                        serv.send("302", conn)
+
+                    except errors.IncorrectKey:
+                        serv.send("303", conn)
+
+                    except Exception:
+                        serv.send("1", conn)
 
     except Exception as error:
         log.log.error(error)
-        serv.send(None, conn)
+        serv.send("0", conn)
 
 class Active:
     def __init__ (self, function = users_active):

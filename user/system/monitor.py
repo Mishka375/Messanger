@@ -1,8 +1,8 @@
 from libs import server
 from libs.server import log
-import threading
+import threading, time
 
-HOST = "192.168.0.22"
+HOST = "192.168.0.20"
 SERV_PORT = 70
 CHAT_PORT = 71
 
@@ -13,9 +13,54 @@ session_key = None
 chat_id = None
 user_name = "UNKNOWN"
 
-in_chat = threading.Event()
+in_chat = 0
 
 chat = None
+
+def print_error(error_code):
+    error = ""
+    match error_code:
+
+        case 101:
+            error = "Redis: Incorrect data"
+
+        case 102:
+            error = "Redis: Timeout"
+
+        case 102:
+            error = "Redis: Busy"
+
+        case 200:
+            error = "SQL: Error"
+
+        case 201:
+            error = "SQL: Value exist"
+
+        case 202:
+            error = "SQL: Value is Null"
+
+        case 203:
+            error = "SQL: Request"
+
+        case 204:
+            error = "SQL: Data"
+
+        case 301:
+            error = "Incorrect login"
+        
+        case 302:
+            error = "Incorrect enter"
+
+        case 303:
+            error = "Incorrect key"
+
+        case 400:
+            error = "Chat: Error"
+
+        case 0:
+            error = "Correct"
+    print(error)
+
 
 def get_messages (key):
     log.log.debug("chat start")
@@ -28,14 +73,18 @@ def get_messages (key):
     print(chat_conn.get_message())
     chat_conn.send_all(key)
 
-    while in_chat.is_set():
+    while 1:
         message = chat_conn.get_message()
-        print(f"# Message: {message}")
+
+        if in_chat:
+            print(f"# Message: {message}")
+            
+        time.sleep(0.1)
 
 try:
-    print(conn.get_message())
+    connect = int(conn.get_message())
 
-    while True:
+    while connect:
         command = input(f"{user_name}-> ").strip()
 
         match command:
@@ -51,10 +100,7 @@ try:
 
                     correct = int(conn.get_message())
 
-                    if correct:
-                        print("# Correct")
-                    else:
-                        print("# Incorrect")
+                    print_error(correct)
                     
                 except Exception as error:
                     log.log.error(error)
@@ -69,19 +115,19 @@ try:
 
                         conn.send_all(f"{command}*;:;*{login}*;:;*{password}")
 
-                        data = conn.get_message()
-                        data = data.split("*;:;*")
-                        correct = conn.get_message()
+                        correct = int(conn.get_message())
 
-                        if data[0] != "0" and correct:
-                            session_key = data[0]
-                            user_name = data[1]
+                        if not correct:
+                            data = conn.get_message()
+                            data = data.split("*;:;*")
 
-                            chat = threading.Thread(target = get_messages, daemon = True, args = (session_key,))
-                        
-                            print("# Correct")
-                        else:
-                            print("# Incorrect")
+                            if data[0] != "0":
+                                session_key = data[0]
+                                user_name = data[1]
+
+                                chat = threading.Thread(target = get_messages, daemon = True, args = (session_key,))
+                            
+                        print_error(correct)
 
                     except Exception as error:
                         log.log.error(error)
@@ -99,10 +145,7 @@ try:
                 
                     correct = int(conn.get_message())
 
-                    if correct:
-                        print("# Correct")
-                    else:
-                        print("# Incorrect")
+                    print_error(correct)
                 
                 except Exception as error:
                     log.log.error(error)
@@ -114,20 +157,19 @@ try:
                     chat_name = input("CHAT_NAME--> ").strip()
 
                     conn.send_all(f"{command}*;:;*{session_key}*;:;*{chat_name}")
-                    chat_id = conn.get_message()
-
-                    meesage = None
 
                     correct = int(conn.get_message())
 
-                    if correct:
-                        print("# Correct")
-                        in_chat.set()
+                    meesage = None
+
+                    if not correct:
+                        chat_id = conn.get_message()
+                        in_chat = 1
                         chat.start()
                     else:
-                        print("# Incorrect")
+                        print_error(correct)
 
-                    while correct:
+                    while not correct:
                         message = input(f"{chat_name}:{user_name}-> ").strip()
 
                         if message == "/exit":
@@ -137,12 +179,9 @@ try:
 
                         correct = int(conn.get_message())
 
-                        if correct:
-                            print("# Correct")
-                        else:
-                            print("# Incorrect")
+                        print_error(correct)
 
-                    in_chat.clear()
+                    in_chat = 0
                     chat_id = None
 
                 except Exception as error:
@@ -157,57 +196,18 @@ try:
 
                         correct = int(conn.get_message())
 
-                        if correct:
-                            print("# Correct")
-                        else:
-                            print("# Incorrect")
+                        print_error(correct)
 
                     except Exception as error:
                         log.log.error(error)
                 else:
                     None
-                    
-            # case "sql_users":
-            #     command = input("SQU> ")
-            #     try:
-            #         database.users_execute(command)
-            #         try:
-            #             result = database.cursor_users.fetchall()
-            #             if result:
-            #                 for row in result:
-            #                     print(row)
-            #             else:
-            #                 print("Request is complete")
-            #         except database.psycopg2.ProgrammingError:
-            #             print("Request is comlete")
-            #     except Exception as e:
-            #         print(f"SQL error: {e}")
-
-            # case "sql_chats":
-            #     command = input("SQC> ")
-            #     try:
-            #         database.chats_execute(command)
-            #         try:
-            #             result = database.cursor_chats.fetchall()
-            #             if result:
-            #                 for row in result:
-            #                     print(row)
-            #             else:
-            #                 print("Request is complete")
-            #         except database.psycopg2.ProgrammingError:
-            #             print("Request is comlete")
-            #     except Exception as e:
-            #         print(f"SQL error: {e}")
 
             case "whoami":
                 print(session_key, user_name)
             
-            # case "get":
-            #     key = input("GET> ")
-            #     value = database.redis_get(key)
-            #     print(f"Value: {value}" if value else f"Key '{key}' is not found")
-            
             case "exit":
+                connect = 0
                 break
             
             case _:
@@ -218,4 +218,5 @@ except KeyboardInterrupt:
     exit()
 
 except Exception as error:
+    print(error)
     log.log.error(error)

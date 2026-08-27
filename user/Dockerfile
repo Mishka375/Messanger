@@ -1,9 +1,9 @@
-FROM python:3.14
+FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY libs/ ./libs/
-COPY monitor.py .
+COPY ./system/libs/ ./libs/
+COPY ./system/monitor.py .
 
 RUN mkdir logs && touch logs/main_log
 
