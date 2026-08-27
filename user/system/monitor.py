@@ -2,7 +2,7 @@ from libs import server
 from libs.server import log
 import threading, time
 
-HOST = "192.168.0.22"
+HOST = "192.168.0.20"
 SERV_PORT = 70
 CHAT_PORT = 71
 
@@ -20,6 +20,9 @@ chat = None
 def print_error(error_code):
     error = ""
     match error_code:
+
+        case 1:
+            error = "Unknown error"
 
         case 101:
             error = "Redis: Incorrect data"
@@ -59,6 +62,9 @@ def print_error(error_code):
 
         case 0:
             error = "Correct"
+
+        case _:
+            error = error_code
     print(f"# {error}")
 
 
@@ -70,16 +76,18 @@ def get_messages (key):
     chat_conn = server.Client()
     chat_conn.connect(HOST, CHAT_PORT)
 
-    print(chat_conn.get_message())
-    chat_conn.send_all(key)
+    correct = chat_conn.get_message()
 
-    while 1:
-        message = chat_conn.get_message()
+    if int(correct):
+        chat_conn.send_all(key)
 
-        if in_chat:
-            print(f"# Message: {message}")
-            
-        time.sleep(0.1)
+        while 1:
+            message = chat_conn.get_message()
+
+            if in_chat:
+                print(f"# Message: {message}")
+                
+            time.sleep(0.1)
 
 try:
     connect = int(conn.get_message())
