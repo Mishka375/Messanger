@@ -164,8 +164,8 @@ class Server:
 
             try:            
                 if type(message) is not bytes:
-                    message = message.encode("utf-8")
-                user.sendall(message)
+                    message.encode("utf-8")
+                user.sendall(messe = message)
                 log.debug(f'server send message <{message}> to <{user}>')
             except Exception as error:
                 log.error(error)
