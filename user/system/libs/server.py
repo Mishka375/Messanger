@@ -133,7 +133,9 @@ class Client:
 
         try:
             if self._connected:
-                self._sock.send(message.encode())
+                if type(message) is not bytes:
+                    message = message.encode()
+                self._sock.send(message)
                 log.log.debug(f'client send message <{message}>')
         except Exception as error:
             log.log.error(error)
@@ -143,7 +145,9 @@ class Client:
 
         try:
             if self._connected:
-                self._sock.sendall(message.encode())
+                if type(message) is not bytes:
+                    message = message.encode()
+                self._sock.sendall(message)
                 log.log.debug(f'client send message <{message}>')
         except Exception as error:
             log.log.error(error)
@@ -154,7 +158,9 @@ class Client:
 
         try:
             if self._connected:
-                self._sock.sendto(message.encode(), address)
+                if type(message) is not bytes:
+                    message = message.encode()
+                self._sock.sendto(message, address)
             log.log.debug(f'client send message <{message}> to <{address}>')
         except Exception as error:
             log.log.error(error)
@@ -163,7 +169,7 @@ class Client:
                      bufsize: int = 1024):
 
         try:
-            _text = self._sock.recv(bufsize).decode()
+            _text = self._sock.recv(bufsize)
             log.log.debug(f'client was get message <{_text}>')
             return _text
         except Exception as error:
@@ -173,7 +179,7 @@ class Client:
                           buffsize: int = 1024):
 
         try:
-            _text = self._sock.recvfrom(buffsize).decode()
+            _text = self._sock.recvfrom(buffsize)
             log.log.debug(f'client was get message <{_text}>')
             return _text
         except Exception as error:

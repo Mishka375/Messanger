@@ -58,6 +58,10 @@ class IncorrectEnter (Exception):
 class IncorrectKey (Exception):
     pass
 
+# 304
+class IncorrectConnect (Exception):
+    pass
+
 
 
 

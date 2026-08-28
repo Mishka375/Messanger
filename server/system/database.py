@@ -112,7 +112,7 @@ def redis_sessions_del(key):
 
 
 
-def users_execute(command: str, params=None):
+def users_execute(command: str, params=None) -> list | None:
     start = time.time()
 
     monitoring.sql_request_queue.inc()
@@ -121,6 +121,19 @@ def users_execute(command: str, params=None):
         cursor_users.execute(command, params)
         connect_users.commit()
         log.log.debug(f"users command <{command}>:<{params}>")
+
+        try:
+            res = cursor_users.fetchall()
+
+            if res == []:
+                return None
+            return res
+
+        except psycopg2.ProgrammingError:
+            return None
+        
+        except Exception:
+            raise
     
     except psycopg2.IntegrityError as error:
         if error.pgcode == "23505":
@@ -164,7 +177,7 @@ def users_execute(command: str, params=None):
         monitoring.sql_request_count.inc()
         monitoring.sql_request_time.observe(time.time() - start)
 
-def chats_execute(command: str, params=None):
+def chats_execute(command: str, params=None) -> list | None:
     start = time.time()
 
     monitoring.sql_request_queue.inc()
@@ -173,6 +186,19 @@ def chats_execute(command: str, params=None):
         cursor_chats.execute(command, params)
         connect_chats.commit()
         log.log.debug(f"chats command <{command}>:<{params}>")
+
+        try:
+            res = cursor_chats.fetchall()
+
+            if res == []:
+                return None
+            return res
+
+        except psycopg2.ProgrammingError:
+            return None
+        
+        except Exception:
+            raise
     
     except psycopg2.IntegrityError as error:
         if error.pgcode == "23505":

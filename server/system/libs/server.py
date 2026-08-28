@@ -139,7 +139,9 @@ class Server:
                  address: str | list = ()):
 
         try:
-            self._sock.sendto(message.encode(), address)
+            if type(message) is not bytes:
+                message = message.encode()
+            self._sock.sendto(message, address)
             log.debug(f'user send message <{message}> to <{address}>')
         except Exception as error:
             log.error(error)
@@ -149,17 +151,21 @@ class Server:
                  user = None):
 
         try:
-            user.send(message.encode())
+            if type(message) is not bytes:
+                message = message.encode()
+            user.send(message)
             log.debug(f'server send message <{message}> to <{user}>')
         except Exception as error:
             log.error(error)
 
     def send_all (self,
                   message: str,
-                  user = None):
+                  user):
 
-            try:
-                user.sendall(message.encode())
+            try:            
+                if type(message) is not bytes:
+                    message = message.encode()
+                user.sendall(message)
                 log.debug(f'server send message <{message}> to <{user}>')
             except Exception as error:
                 log.error(error)
