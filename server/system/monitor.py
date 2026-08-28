@@ -10,32 +10,26 @@ try:
                 case "sql_users":
                     command = input("SQU> ")
                     try:
-                        database.users_execute(command)
-                        try:
-                            result = database.cursor_users.fetchall()
-                            if result:
-                                for row in result:
-                                    print(row)
-                            else:
-                                print("Request is complete")
-                        except database.psycopg2.ProgrammingError:
-                            print("Request is comlete")
+                        result = database.users_execute(command)
+                        if result:
+                            for row in result:
+                                print(row)
+                        else:
+                            print("Request is complete")
                     except Exception as e:
                         print(f"SQL error: {e}")
 
                 case "sql_chats":
                     command = input("SQC> ")
                     try:
-                        database.chats_execute(command)
-                        try:
-                            result = database.cursor_chats.fetchall()
-                            if result:
-                                for row in result:
-                                    print(row)
-                            else:
-                                print("Request is complete")
-                        except database.psycopg2.ProgrammingError:
-                            print("Request is comlete")
+                        result = database.chats_execute(command)
+
+                        if result:
+                            for row in result:
+                                print(row)
+                        else:
+                            print("Request is complete")
+
                     except Exception as e:
                         print(f"SQL error: {e}")
 
