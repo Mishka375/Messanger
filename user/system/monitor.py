@@ -1,5 +1,5 @@
 from libs import server
-from libs.server import log
+from libs import log
 import threading
 import pickle
 import sqlite3
@@ -21,6 +21,7 @@ user_name = "UNKNOWN"
 in_chat = 0
 chat = None
 
+chat_name = ""
 correct_chat_id = None
 saved_chats = {}
 
@@ -35,12 +36,20 @@ def get_messages(key: str) -> None:
 
     if int(correct):
         chat_conn.send_all(key)
+        log.log.debug("Chat is correct")
 
         while 1:
             message = (chat_conn.get_message().decode()).split(split_symbol)
 
             if in_chat:
-                print(f"# {message[0]}: {message[1]}")
+                print(f"\r[{message[0]}]: {message[1]}")
+
+            cursor = []
+            if len(chat_name):
+                cursor.append(chat_name)
+
+            cursor.append(user_name)
+            print(f"{':'.join(cursor)}-> ", end="")
 
             time.sleep(0.1)
 
@@ -77,7 +86,7 @@ try:
                         case 0:
                             pass
                         case 301:
-                            print("! Login is exist")
+                            print("! The login is already taken")
                         case 1:
                             print("! Unknown error")
                         case _:
@@ -115,8 +124,6 @@ try:
                                 chats_data = pickle.loads(conn.get_message())
                                 for chats in chats_data:
                                     saved_chats[chats[0]]=chats[1]
-
-                                print(f"Your chats {chats_data}")
 
                                 log.log.debug(f"Chats data: {chats_data}")
 

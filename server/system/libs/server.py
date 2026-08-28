@@ -136,7 +136,7 @@ class Server:
 
     def send_to_address (self,
                  message: str        = '',
-                 address: str | list = ()):
+                 address: str | list = ()) -> None:
 
         try:
             if type(message) is not bytes:
@@ -148,7 +148,7 @@ class Server:
 
     def send (self,
                  message: str,
-                 user = None):
+                 user = None) -> None:
 
         try:
             if type(message) is not bytes:
@@ -159,20 +159,20 @@ class Server:
             log.error(error)
 
     def send_all (self,
-                  message: str,
-                  user):
+                  message,
+                  user) -> None:
 
             try:            
                 if type(message) is not bytes:
-                    message.encode("utf-8")
-                user.sendall(messe = message)
+                    message = message.encode("utf-8")
+                user.sendall(message)
                 log.debug(f'server send message <{message}> to <{user}>')
             except Exception as error:
                 log.error(error)
 
     def get_message (self,
                      bufsize: int = 1024,
-                     user = None):
+                     user = None) -> bytes:
 
         try:
             _text = user.recv(bufsize).decode()

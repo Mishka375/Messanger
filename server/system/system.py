@@ -37,7 +37,7 @@ def new_sender() -> None:
 
     while 1:
         conn = chat.accept()
-        chat.send_all("1", conn)
+        chat.send("1", conn)
         key = chat.get_message(user = conn)
         id = database.redis_sessions_get(key)
 
