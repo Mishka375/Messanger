@@ -24,62 +24,6 @@ chat = None
 correct_chat_id = None
 saved_chats = {}
 
-def print_error(error_code: int) -> None:
-    error = ""
-    match error_code:
-
-        # Unknown errors
-        case 1:
-            error = "Unknown error"
-
-        # Redis errors
-        case 101:
-            error = "Redis: Incorrect data"
-
-        case 102:
-            error = "Redis: Timeout"
-
-        case 102:
-            error = "Redis: Busy"
-
-        # SQL errors
-        case 200:
-            error = "SQL: Error"
-
-        case 201:
-            error = "SQL: Value exist"
-
-        case 202:
-            error = "SQL: Value is Null"
-
-        case 203:
-            error = "SQL: Request"
-
-        case 204:
-            error = "SQL: Data"
-
-        # Incorrect actions
-        case 301:
-            error = "Incorrect login"
-
-        case 302:
-            error = "Incorrect enter"
-
-        case 303:
-            error = "Incorrect key"
-
-        # Chat errors
-        case 400:
-            error = "Chat: Error"
-
-        # Correct
-        case 0:
-            error = "Correct"
-
-        case _:
-            error = error_code
-    print(f"# {error}")
-
 
 def get_messages(key: str) -> None:
     log.log.debug("chat start")
@@ -129,7 +73,15 @@ try:
 
                     correct = int(conn.get_message().decode())
 
-                    print_error(correct)
+                    match correct:
+                        case 0:
+                            pass
+                        case 301:
+                            print("! Login is exist")
+                        case 1:
+                            print("! Unknown error")
+                        case _:
+                            print(f"! Error code: {correct}")
 
                 except Exception as error:
                     log.log.error(error)
@@ -152,30 +104,41 @@ try:
 
                         correct = int(conn.get_message().decode())
 
-                        if not correct:
-                            data = conn.get_message().decode()
-                            data = data.split(split_symbol)
+                        match correct:
+                            case 0:
+                                data = conn.get_message().decode()
+                                data = data.split(split_symbol)
 
-                            session_key = data[0]
-                            user_name = data[1]
+                                session_key = data[0]
+                                user_name = data[1]
 
-                            chats_data = pickle.loads(conn.get_message())
-                            for chats in chats_data:
-                                saved_chats[chats[0]]=chats[1]
+                                chats_data = pickle.loads(conn.get_message())
+                                for chats in chats_data:
+                                    saved_chats[chats[0]]=chats[1]
 
-                            print(f"Your chats {chats_data}")
+                                print(f"Your chats {chats_data}")
 
-                            log.log.debug(f"Chats data: {chats_data}")
+                                log.log.debug(f"Chats data: {chats_data}")
 
-                            chat = threading.Thread(
-                                target=get_messages,
-                                daemon=True,
-                                args=(session_key,)
-                            )
+                                chat = threading.Thread(
+                                    target=get_messages,
+                                    daemon=True,
+                                    args=(session_key,)
+                                )
 
-                            chat.start()
+                                chat.start()
 
-                        print_error(correct)
+                            case 302:
+                                print("! Incorrect login or password")
+
+                            case 303:
+                                print("! Try again")
+
+                            case 1:
+                                print("! Unknown error")
+
+                            case _:
+                                print(f"! Error code: {correct}")
 
                     except Exception as error:
                         log.log.error(error)
@@ -200,11 +163,21 @@ try:
 
                     correct = int(conn.get_message().decode())
 
-                    print_error(correct)
+                    match correct:
+                        case 0:
+                            chat_id = int(conn.get_message().decode())
+                            saved_chats[chat_id]=chat_name
+                        case 302:
+                            print("! Link is incorrect")
+                        case 303:
+                            print("! Incorrect session key")
+                        case 400:
+                            pass
+                        case 1:
+                            print("! Unknown error")
+                        case _:
+                            print(f"! Error code: {correct}")
 
-                    if correct:
-                        chat_id = int(conn.get_message().decode())
-                        saved_chats[chat_id]=chat_name
 
                 except Exception as error:
                     log.log.error(error)
@@ -227,12 +200,20 @@ try:
 
                     meesage = None
 
-                    if not correct:
-                        correct_chat_id = conn.get_message().decode()
-                        in_chat = 1
-                        saved_chats[correct_chat_id]=chat_name
-                    else:
-                        print_error(correct)
+                    match correct:
+                        case 0:
+                            correct_chat_id = conn.get_message().decode()
+                            in_chat = 1
+                            saved_chats[correct_chat_id]=chat_name
+                        case 303:
+                            print("! Incorrect key")
+                        case 400:
+                            print("! Chat is not found")
+                        case 1:
+                            print("! Unknown error")
+                        case _:
+                            print(f"! Error code: {correct}")
+
 
                     while not correct:
                         message = input(f"{chat_name}:{user_name}-> ").strip()
@@ -251,7 +232,17 @@ try:
 
                         correct = int(conn.get_message().decode())
 
-                        print_error(correct)
+                        match correct:
+                            case 0:
+                                pass
+                            case 303:
+                                print("! Incorrect key")
+                            case 400:
+                                print("! Chat is not found")
+                            case 1:
+                                print("! Unknown error")
+                            case _:
+                                print(f"! Error code: {correct}")
 
                     in_chat = 0
                     correct_chat_id = None
@@ -275,7 +266,15 @@ try:
 
                         correct = int(conn.get_message().decode())
 
-                        print_error(correct)
+                        match correct:
+                            case 0:
+                                pass
+                            case 303:
+                                print("! Incorrect key")
+                            case 1:
+                                print("! Unknown error")
+                            case _:
+                                print(f"! Error code: {correct}")
 
                     except Exception as error:
                         log.log.error(error)

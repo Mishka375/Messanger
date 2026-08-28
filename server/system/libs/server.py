@@ -140,7 +140,7 @@ class Server:
 
         try:
             if type(message) is not bytes:
-                message = message.encode()
+                message = message.encode("utf-8")
             self._sock.sendto(message, address)
             log.debug(f'user send message <{message}> to <{address}>')
         except Exception as error:
@@ -152,7 +152,7 @@ class Server:
 
         try:
             if type(message) is not bytes:
-                message = message.encode()
+                message = message.encode("utf-8")
             user.send(message)
             log.debug(f'server send message <{message}> to <{user}>')
         except Exception as error:
@@ -164,7 +164,7 @@ class Server:
 
             try:            
                 if type(message) is not bytes:
-                    message = message.encode()
+                    message = message.encode("utf-8")
                 user.sendall(message)
                 log.debug(f'server send message <{message}> to <{user}>')
             except Exception as error:

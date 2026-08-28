@@ -8,6 +8,7 @@ import threading
 import pickle
 import uuid
 
+
 split_symbol = "*;:;*"
 
 HOST = "0.0.0.0"
@@ -111,10 +112,6 @@ def enter (login: str, password: str) -> str:
         chats_data = database.chats_execute("SELECT id, name FROM chats WHERE user_1=%s OR user_2=%s", (id, id))
 
         return key, chats_data
-
-    except errors.SQLDataError as error:
-        log.log.error(error)
-        raise
         
     except Exception as error:
         log.log.error(error)
@@ -136,17 +133,12 @@ def out (key: str) -> None:
             raise errors.IncorrectKey("Key is incorrect")
         
         id = int(id)
-        result = database.users_execute("SELECT name FROM personal WHERE id=%s;", (id,))
-
-        if result is None:
-            log.log.warning("User is not found")
-            raise errors.IncorrectEnter("User unfound")
         
         monitoring.users_online.dec()
         database.redis_sessions_del(key)
         del connects[id]
             
-        log.log.debug(f"User {result} is exit")
+        log.log.debug(f"User {id} is exit")
             
     except Exception as error:
         log.log.error(error)
@@ -173,7 +165,7 @@ def new_chat (key: str, user_link: str, name: str) -> int:
         if id_2 is None:
             log.log.warning("Link is incorrect")
             raise errors.IncorrectEnter("Link is incorrect")
-        
+
         id_2 = int(id_2[0][0])
 
         if id_1 != id_2:
@@ -186,7 +178,7 @@ def new_chat (key: str, user_link: str, name: str) -> int:
                 log.log.warning("Chat is not found")
                 raise errors.ChatError
 
-            return int(chat_id)
+            return int(chat_id[0][0])
 
         else:
             log.log.warning(f"Chat {name} wasn't created, same id")
@@ -400,9 +392,6 @@ def users_active (conn) -> None:
                     try:
                         out(data[1])
                         serv.send("0", conn)
-
-                    except errors.IncorrectEnter:
-                        serv.send("302", conn)
 
                     except errors.IncorrectKey:
                         serv.send("303", conn)
