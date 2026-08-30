@@ -2,7 +2,7 @@ import logging
 
 log = logging.getLogger("main")
 log.setLevel(10)
-log.propagate = True
+log.propagate = False
 
 handler = logging.FileHandler("./logs/main_log", mode = "w")
 handler.setLevel(10)

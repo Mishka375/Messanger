@@ -2,9 +2,10 @@ from libs import server
 from libs import log
 import threading
 import pickle
-import sqlite3
 import time
+import os
 
+os.system("clear")
 
 split_symbol = "*;:;*"
 
@@ -52,6 +53,9 @@ def get_messages(key: str) -> None:
             print(f"{':'.join(cursor)}-> ", end="")
 
             time.sleep(0.1)
+    else:
+        log.log.warning("Chat is disconnect")
+
 
 try:
     connect = conn.get_message().decode()
@@ -121,11 +125,15 @@ try:
                                 session_key = data[0]
                                 user_name = data[1]
 
-                                chats_data = pickle.loads(conn.get_message())
-                                for chats in chats_data:
-                                    saved_chats[chats[0]]=chats[1]
+                                chats_data = conn.get_message()
 
-                                log.log.debug(f"Chats data: {chats_data}")
+                                if chats_data != b"None":
+                                    chats_data = pickle.loads(chats_data)
+
+                                    for chats in chats_data:
+                                        saved_chats[chats[0]]=chats[1]
+
+                                    log.log.debug(f"Chats data: {chats_data}")
 
                                 chat = threading.Thread(
                                     target=get_messages,
@@ -150,7 +158,7 @@ try:
                     except Exception as error:
                         log.log.error(error)
                 else:
-                    None
+                    pass
 
             case "new_chat":
                 print("# NEW CHAT")

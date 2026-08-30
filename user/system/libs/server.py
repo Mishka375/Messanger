@@ -134,7 +134,7 @@ class Client:
         try:
             if self._connected:
                 if type(message) is not bytes:
-                    message = message.encode("utf-8")
+                    message = message.encode("utf-8", errors='replace')
                 self._sock.send(message)
                 log.log.debug(f'client send message <{message}>')
         except Exception as error:
@@ -146,7 +146,7 @@ class Client:
         try:
             if self._connected:
                 if type(message) is not bytes:
-                    message = message.encode("utf-8")
+                    message = message.encode("utf-8", errors='replace')
                 self._sock.sendall(message)
                 log.log.debug(f'client send message <{message}>')
         except Exception as error:
@@ -159,7 +159,7 @@ class Client:
         try:
             if self._connected:
                 if type(message) is not bytes:
-                    message = message.encode("utf-8")
+                    message = message.encode("utf-8", errors='replace')
                 self._sock.sendto(message, address)
             log.log.debug(f'client send message <{message}> to <{address}>')
         except Exception as error:

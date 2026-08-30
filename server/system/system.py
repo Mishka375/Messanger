@@ -118,21 +118,27 @@ def key_gen() -> str:
     return str(uuid.uuid4())
 
 def new_sender() -> None:
-    global chat, connects
+    global connects
+
+    log.log.debug("search new senders")
 
     while 1:
-        conn = chat.accept()
-        chat.send("1", conn)
-        key = chat.get_message(user = conn)
-        id = database.redis_sessions_get(key)
+        try:
+            sender = chat.accept()
+            log.log.debug("try get new sender")
+            chat.send("1", sender)
+            key = chat.get_message(user = sender).decode()
+            id = database.redis_sessions_get(key)
 
-        if id is None:
-            log.log.error(f"id is not found")
+            if id is None:
+                log.log.error(f"id is not found")
 
-        else:
-            id = int(id)
-            connects[id] = conn
-            log.log.debug(f"new seder <{id}>")
+            else:
+                connects[str(id)] = sender
+                log.log.debug(f"new seder <{id}>")
+                
+        except Exception as error:
+            log.log.error(error)
 
 threading.Thread(target = new_sender, daemon = True).start()
 
@@ -231,7 +237,7 @@ def out (key: str, **kwargs) -> None:
         
         monitoring.users_online.dec()
         database.redis_sessions_del(key)
-        del connects[id]
+        del connects[str(id)]
             
         log.log.debug(f"User {id} is exit")
             
@@ -354,8 +360,9 @@ def message (key: str, chat_id: int, message: str, **kwargs) -> None:
         user_1, user_2 = data[0]
 
         interlocur_id = int(user_1) if int(user_1) != sender_id else int(user_2)
+
         try:
-            interlocur_conn = connects[int(interlocur_id)]
+            interlocur_conn = connects[str(interlocur_id)]
             chat.send_all(split_symbol.join([sender_name, message]), interlocur_conn)
 
         except KeyError:
@@ -387,7 +394,7 @@ def users_active (conn) -> None:
         serv.send("1", conn)
 
         while 1:
-            data = serv.get_message(user = conn)
+            data = serv.get_message(user = conn).decode()
             data = data.split(split_symbol)
 
             match data[0]:

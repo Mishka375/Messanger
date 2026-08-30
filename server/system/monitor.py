@@ -1,4 +1,4 @@
-from libs import log, gui
+from libs import gui
 import database
 
 try:

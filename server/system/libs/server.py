@@ -175,7 +175,7 @@ class Server:
                      user = None) -> bytes:
 
         try:
-            _text = user.recv(bufsize).decode()
+            _text = user.recv(bufsize)
             # log.debug(f'message <{_text}> has been get')
             return _text
         except Exception as error:
