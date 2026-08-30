@@ -35,11 +35,11 @@ cursor_chats = connect_chats.cursor()
 
 
 
-def redis_sessions_set(key, value, ex=3600):
+def redis_sessions_set(key, value, ex = 3600) -> None:
     try:
         monitoring.redis_operations_count.inc()
         log.log.debug(f"Redis key <{key}:{value}> was created on <{ex}> time")
-        redis_sessions.set(key, value, ex=ex)
+        redis_sessions.set(key, value, ex = ex)
     
     except redis.DataError:
         log.log.error("Data error")
@@ -89,7 +89,7 @@ def redis_sessions_get(key):
         monitoring.redis_errors_count.inc()
         raise error
 
-def redis_sessions_del(key):
+def redis_sessions_del(key) -> None:
     try:
         log.log.debug(f"key <{key}> is deleted")
         monitoring.redis_operations_count.inc()
@@ -117,7 +117,7 @@ def redis_sessions_del(key):
 
 
 
-def users_execute(command: str, params=None) -> list | None:
+def users_execute(command: str, params: None | tuple = None) -> list | None:
     start = time.time()
 
     monitoring.sql_request_queue.inc()
@@ -182,7 +182,7 @@ def users_execute(command: str, params=None) -> list | None:
         monitoring.sql_request_count.inc()
         monitoring.sql_request_time.observe(time.time() - start)
 
-def chats_execute(command: str, params=None) -> list | None:
+def chats_execute(command: str, params: None | tuple = None) -> list | None:
     start = time.time()
 
     monitoring.sql_request_queue.inc()

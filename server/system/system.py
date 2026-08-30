@@ -390,6 +390,7 @@ def check_session(key: str) -> bool:
 
 
 def users_active (conn) -> None:
+
     try:
         serv.send("1", conn)
 

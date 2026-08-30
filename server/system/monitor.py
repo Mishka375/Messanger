@@ -40,9 +40,7 @@ try:
                     pass
 
         except Exception as error:
-            log.log.error(error)
             print(error)
 
 except Exception as error:
-    log.log.error(error)
     print(error)
