@@ -1,6 +1,11 @@
-import psycopg2, redis, time, os
-import monitoring
-from libs import log, errors
+from libs import monitoring
+from libs import errors
+from libs import log
+
+import psycopg2
+import redis
+import time
+import os
 
 
 redis_sessions = redis.Redis(

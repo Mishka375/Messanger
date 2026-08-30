@@ -1,5 +1,4 @@
 from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST, start_http_server
-import threading
 
 
 users_total = Gauge (

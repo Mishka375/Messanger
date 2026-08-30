@@ -73,13 +73,14 @@ services:
         restart: unless-stopped
 
 
-
     redis_sessions:
         image: redis:8-alpine
         container_name: redis_sessions
         networks:
             - local
         restart: unless-stopped
+
+
 
     prometheus:
         image: prom/prometheus
