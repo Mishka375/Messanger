@@ -1,5 +1,4 @@
-from libs import gui
-import database
+database = None
 
 try:
     while True:

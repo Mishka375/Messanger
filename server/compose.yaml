@@ -7,9 +7,6 @@ services:
         ports:
             - 8000:8000
             - 70:70
-            - 71:71
-        stdin_open: true
-        tty: true
         environment:
             DATABASE_HOST_USERS: users_db
             DATABASE_NAME_USERS: users
