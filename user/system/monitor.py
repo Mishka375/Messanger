@@ -49,8 +49,9 @@ def init_session(conn) -> bool:
 
     log.log.debug(session_key)
 
-    if session_key:
+    if session_key is not None:
         log.log.info("connect")
+        log.log.info(session_key)
         return True
 
     log.log.info("disconnect")
@@ -219,7 +220,7 @@ def message(conn) -> None:
 
 @connect
 def choose_chat(conn) -> None:
-    global in_chat
+    global in_chat, chat_name, correct_chat_id
 
     print("# CHOOSE CHAT")
 
@@ -313,8 +314,11 @@ try:
 
             case "out":
                 out()
+                session_key = None
 
             case "exit":
+                if session_key is not None:
+                    out()
                 break
 
             case _:
@@ -326,6 +330,8 @@ try:
     #     pass
 
 except KeyboardInterrupt:
+    if session_key is not None:
+        out()
     print("Disconnect")
     exit()
 

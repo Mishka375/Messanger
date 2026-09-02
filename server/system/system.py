@@ -168,8 +168,6 @@ def register(key: str, login: str, password: str, name: str) -> None:
 @errors_view
 @metrics
 def enter (key: str, login: str, password: str) -> list:
-    start = time.time()
-
     try:
         id = database.users_execute("SELECT id FROM users WHERE login=%s AND password=%s;", (login, password))
 
@@ -202,15 +200,10 @@ def enter (key: str, login: str, password: str) -> list:
         log.log.error(error)
         raise
 
-    finally:
-        monitoring.sql_request_time.observe(time.time() - start)
-
 @send
 @errors_view
 @metrics
 def out (key: str) -> None:
-    start = time.time()
-    
     try:      
         if not check_session(key):
             log.log.warning("Key is incorrect")
@@ -223,15 +216,10 @@ def out (key: str) -> None:
         log.log.error(error)
         raise
 
-    finally:
-        monitoring.sql_request_time.observe(time.time() - start)
-
 @send
 @errors_view
 @metrics
 def new_chat (key: str, user_link: str, name: str) -> list:
-    start = time.time()
-
     try:
         if not check_session(key):
             log.log.warning("Key is not exist")
@@ -267,15 +255,10 @@ def new_chat (key: str, user_link: str, name: str) -> list:
         log.log.error(error)
         raise
 
-    finally:
-        monitoring.sql_request_time.observe(time.time() - start)
-
 @send
 @errors_view
 @metrics
 def choose_chat (key: str, chat_name: str) -> list:
-    start = time.time()
-    
     try:
         if not check_session(key):
             log.log.warning("Key is not exist")
@@ -295,20 +278,15 @@ def choose_chat (key: str, chat_name: str) -> list:
         return [chat_id]
     
     except Exception as error:
-        chat_id = None
+        monitoring.request_errors.inc()
         log.log.error(error)
         raise
-
-    finally:
-        monitoring.sql_request_time.observe(time.time() - start)
 
 @send
 @errors_view
 @metrics
 def message (key: str, chat_id: int, message: str) -> None:
     global connects
-    start = time.time()
-    
     try:
         if not check_session(key):
             log.log.warning("Key is not exist")
@@ -330,12 +308,8 @@ def message (key: str, chat_id: int, message: str) -> None:
         monitoring.messages_count.inc()
     
     except Exception as error:
-        monitoring.sql_request_errors.inc()
         log.log.error(error)
         raise
-
-    finally:
-        monitoring.sql_request_time.observe(time.time() - start)
 
 
 def check_session(key: str) -> bool:

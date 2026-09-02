@@ -18,7 +18,7 @@ messages_count = Counter (
 )
 
 
-redis_operations_count = Counter (
+redis_request_count = Counter (
     "redis_operations_count",
     "Redis operations count"
 )

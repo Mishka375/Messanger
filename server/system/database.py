@@ -38,7 +38,7 @@ cursor_chats = connect_chats.cursor()
 def redis_monitoring(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        monitoring.redis_operations_count.inc()
+        monitoring.redis_request_count.inc()
         log.log.debug(f"function {func.__name__} called with args: <{args}>, kwargs: <{kwargs}>")
 
         try:
@@ -59,7 +59,7 @@ def sql_monitoring(func):
 
         log.log.debug(f"users command in {func.__name__}: args:<{args}>, kwargs:<{kwargs}>")
 
-        monitoring.sql_operations_count.inc()
+        monitoring.sql_request_count.inc()
         monitoring.sql_request_queue.inc()
 
         try:
