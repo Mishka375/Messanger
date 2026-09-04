@@ -67,7 +67,7 @@ def sql_monitoring(func):
             return res
 
         except Exception as error:
-            monitoring.sql_errors_count.inc()
+            monitoring.sql_request_errors.inc()
             log.log.error(f"SQL error: {error}")
             raise
 

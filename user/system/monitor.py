@@ -2,7 +2,6 @@ from libs import server
 from libs import log
 
 import functools
-import threading
 import pickle
 import time
 import os

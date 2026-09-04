@@ -392,5 +392,5 @@ try:
         except Exception as error:
             log.log.error(error)
 
-except Exception:
-    None
+except Exception as error:
+    log.log.fatal(error)
