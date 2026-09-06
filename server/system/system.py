@@ -4,50 +4,40 @@ from libs import errors
 from libs import log
 import database
 
-import functools
+import threading
 import pickle
 import uuid
 import time
-
-
-from flask import Flask, jsonify
-from flask_cors import CORS
-
-app = Flask(__name__)
-CORS(app)
-
-
-@app.route('/reg')
-def reg():
-    return jsonify({
-        "status": "success",
-        "message": "Привет из микросервиса Бэкенда!",
-        "services": ["frontend", "backend", "ingress"]
-    })
 
 
 split_symbol = "*;:;*"
 
 HOST = "0.0.0.0"
 SERV_PORT = 70
+CHAT_PORT = 71
 
 serv = server.Server()
 serv.create_socket(host = HOST, port = SERV_PORT)
 serv.start()
 
+chat = server.Server()
+chat.create_socket(host = HOST, port = CHAT_PORT)
+chat.start()
+
 count = database.users_execute("SELECT COUNT(*) FROM users;")
 monitoring.users_total.set(int(count[0][0]))
 
+connects = {}
+
 
 def send(func) -> None:
-    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
-            conn = kwargs.pop("connect")
             out = func(*args, **kwargs)
 
-            correct = out[0]
-            result = out[1]
+            conn = out[0]
+            correct = out[1]
+            result = out[2]
 
             serv.send(correct, conn)
 
@@ -72,10 +62,11 @@ def send(func) -> None:
     return wrapper
 
 def errors_view(func) -> list:
-    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         res = None
         correct = "1"
+
+        conn = kwargs["connect"]
 
         try:
             res = func(*args, **kwargs)
@@ -118,39 +109,45 @@ def errors_view(func) -> list:
         except Exception as error:
             log.log.error(error)
 
-        return [correct, res]
+        return [conn, correct, res]
 
-    return wrapper
-
-def metrics(func) -> None:
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        monitoring.request_count.inc()
-        monitoring.request_queue.inc()
-        start = time.time()
-        try:
-            res = func(*args, **kwargs)
-
-        except Exception:
-            monitoring.request_errors.inc()
-            raise
-
-        finally:
-            monitoring.request_time.observe(time.time() - start)
-            monitoring.request_queue.dec()
-
-        return res
     return wrapper
 
 
 def key_gen() -> str:
     return str(uuid.uuid4())
 
+def new_sender() -> None:
+    global connects
+
+    log.log.debug("search new senders")
+
+    while 1:
+        try:
+            sender = chat.accept()
+            log.log.debug("try get new sender")
+            chat.send("1", sender)
+            key = chat.get_message(user = sender).decode()
+            id = database.redis_sessions_get(key)
+
+            if id is None:
+                log.log.error(f"id is not found")
+
+            else:
+                connects[str(id)] = sender
+                log.log.debug(f"new seder <{id}>")
+                
+        except Exception as error:
+            log.log.error(error)
+
+threading.Thread(target = new_sender, daemon = True).start()
+
 
 @send
 @errors_view
-@metrics
-def register(key: str, login: str, password: str, name: str) -> None:
+def register(login: str, password: str, name: str, **kwargs) -> None:
+    start = time.time()
+
     try:
         database.users_execute("INSERT INTO users (login, password) VALUES (%s, %s);", (login, password))
 
@@ -180,10 +177,14 @@ def register(key: str, login: str, password: str, name: str) -> None:
         log.log.error(error)
         raise
 
+    finally:
+        monitoring.sql_request_time.observe(time.time() - start)
+
 @send
 @errors_view
-@metrics
-def enter (key: str, login: str, password: str) -> list:
+def enter (login: str, password: str, **kwargs) -> list:
+    start = time.time()
+
     try:
         id = database.users_execute("SELECT id FROM users WHERE login=%s AND password=%s;", (login, password))
 
@@ -194,7 +195,7 @@ def enter (key: str, login: str, password: str) -> list:
         
         session_key = key_gen()
 
-        if check_session(session_key):
+        if database.redis_sessions_get(session_key) is not None:
             log.log.warning ("Key is exist")
             raise errors.IncorrectKey("Key is exist")
 
@@ -216,32 +217,50 @@ def enter (key: str, login: str, password: str) -> list:
         log.log.error(error)
         raise
 
+    finally:
+        monitoring.sql_request_time.observe(time.time() - start)
+
 @send
 @errors_view
-@metrics
-def out (key: str) -> None:
-    try:      
-        if not check_session(key):
+def out (key: str, **kwargs) -> None:
+    global connects
+    start = time.time()
+    
+    try:
+        id = database.redis_sessions_get(key)
+        
+        if id is None:
             log.log.warning("Key is incorrect")
             raise errors.IncorrectKey("Key is incorrect")
         
+        id = int(id)
+        
         monitoring.users_online.dec()
         database.redis_sessions_del(key)
+        del connects[str(id)]
+            
+        log.log.debug(f"User {id} is exit")
             
     except Exception as error:
         log.log.error(error)
         raise
 
+    finally:
+        monitoring.sql_request_time.observe(time.time() - start)
+
 @send
 @errors_view
-@metrics
-def new_chat (key: str, user_link: str, name: str) -> list:
+def new_chat (key: str, user_link: str, name: str, **kwargs) -> list:
+    start = time.time()
+
     try:
-        if not check_session(key):
+        id_1 = database.redis_sessions_get(key)
+
+        if id_1 is None:
             log.log.warning("Key is not exist")
             raise errors.IncorrectKey("Key is not exist")
 
-        id_1 = int(database.redis_sessions_get(key))
+        id_1 = int(id_1)
 
         id_2 = database.users_execute("SELECT id FROM personal WHERE identificator=%s;", (user_link,))
 
@@ -271,16 +290,22 @@ def new_chat (key: str, user_link: str, name: str) -> list:
         log.log.error(error)
         raise
 
+    finally:
+        monitoring.sql_request_time.observe(time.time() - start)
+
 @send
 @errors_view
-@metrics
-def choose_chat (key: str, chat_name: str) -> list:
+def choose_chat (key: str, chat_name: str, **kwargs) -> list:
+    start = time.time()
+    
     try:
-        if not check_session(key):
+        id = database.redis_sessions_get(key)
+
+        if id is None:
             log.log.warning("Key is not exist")
             raise errors.IncorrectKey("Key is not exist")
 
-        id = id = int(database.redis_sessions_get(key))
+        id = int(id)
 
         chat_id = database.chats_execute("SELECT id FROM chats WHERE name=%s AND (user_1 = %s OR user_2 = %s);", (chat_name, id, id))
 
@@ -294,21 +319,27 @@ def choose_chat (key: str, chat_name: str) -> list:
         return [chat_id]
     
     except Exception as error:
-        monitoring.request_errors.inc()
+        chat_id = None
         log.log.error(error)
         raise
 
+    finally:
+        monitoring.sql_request_time.observe(time.time() - start)
+
 @send
 @errors_view
-@metrics
-def message (key: str, chat_id: int, message: str) -> None:
+def message (key: str, chat_id: int, message: str, **kwargs) -> None:
     global connects
+    start = time.time()
+    
     try:
-        if not check_session(key):
+        sender_id = database.redis_sessions_get(key)
+        
+        if sender_id is None:
             log.log.warning("Key is not exist")
             raise errors.IncorrectKey("Key is not exist")
         
-        sender_id = int(database.redis_sessions_get(key))
+        sender_id = int(sender_id)
 
         sender_name = database.users_execute("SELECT name FROM personal WHERE id=%s", (sender_id,))
 
@@ -320,12 +351,36 @@ def message (key: str, chat_id: int, message: str) -> None:
 
         database.chats_execute("INSERT INTO messages (user_id, chat_id, text) VALUES (%s, %s, %s);", (sender_id, chat_id, message))
 
+        data = database.chats_execute("SELECT user_1, user_2 FROM chats WHERE id=%s", (chat_id,))
+
+        if data is None:
+            log.log.warning("Chat is not found")
+            raise errors.ChatError("Chat is not found")
+
+        user_1, user_2 = data[0]
+
+        interlocur_id = int(user_1) if int(user_1) != sender_id else int(user_2)
+
+        try:
+            interlocur_conn = connects[str(interlocur_id)]
+            chat.send_all(split_symbol.join([sender_name, message]), interlocur_conn)
+
+        except KeyError:
+            log.log.warning("User is not online")
+
+        except Exception:
+            raise
+
         log.log.debug(f"Message {message} was sended")
         monitoring.messages_count.inc()
     
     except Exception as error:
+        monitoring.sql_request_errors.inc()
         log.log.error(error)
         raise
+
+    finally:
+        monitoring.sql_request_time.observe(time.time() - start)
 
 
 def check_session(key: str) -> bool:
@@ -334,83 +389,72 @@ def check_session(key: str) -> bool:
     return False
 
 
-try:
-    monitoring.start_http_server(8000)
-    print("Monitoring is started")
+def users_active (conn) -> None:
 
-    while 1:
-        try:
-            conn = serv.accept()
-            log.log.info("connect")
-            request = serv.get_message(user=conn).decode()
+    try:
+        serv.send("1", conn)
 
-            if request == "1":
-                session_key = key_gen()
+        while 1:
+            data = serv.get_message(user = conn).decode()
+            data = data.split(split_symbol)
 
-                log.log.debug(f"new session: {session_key}")
-
-                database.redis_sessions_set(session_key, 0)
-
-                serv.send(session_key, conn)
-                serv.disconnect_user(conn)
-
-                continue
-
-            request = request.split(split_symbol)
-
-            session_key = request[0]
-
-            if not check_session(session_key):
-                serv.send("303")
-                continue
-
-            log.log.debug(f"request: {request[1]}")
-
-            match request[1]:
+            match data[0]:
                 case "register":
                     try:
-                        register(session_key, request[2], request[3], request[4], connect=conn)
+                        register(data[1], data[2], data[3], connect=conn)
                     except Exception as error:
                         log.log.error(error)
 
                 case "enter":
                     try:
-                        enter(session_key, request[2], request[3], connect=conn)
+                        enter(data[1], data[2], connect=conn)
                     except Exception as error:
                         log.log.error(error)
-
+                        
                 case "new_chat":
                     try:
-                        new_chat(session_key, request[2], request[3], connect=conn)
+                        new_chat(data[1], data[2], data[3], connect=conn)
                     except Exception as error:
                         log.log.error(error)
 
                 case "choose_chat":
                     try:
-                        choose_chat(session_key, request[2], connect=conn)
+                        choose_chat(data[1], data[2], connect=conn)
                     except Exception as error:
                         log.log.error(error)
 
                 case "message":
                     try:
-                        message(session_key, int(request[2]), request[3], connect=conn)
+                        message(data[1], int(data[2]), data[3], connect=conn)
                     except Exception as error:
                         log.log.error(error)
-
+                
                 case "out":
                     try:
-                        out(session_key, connect=conn)
+                        out(data[1], connect=conn)
                     except Exception as error:
                         log.log.error(error)
 
-            serv.disconnect_user(conn)
+    except Exception as error:
+        log.log.error(error)
+        serv.send("0", conn)
 
-        except Exception as error:
-            log.log.error(error)
+def main_way() -> None:
+    while 1:
+        conn = serv.accept()
+        log.log.info("new connect")
+        local_server =  threading.Thread(target = users_active, daemon = True, args = (conn,))
+        local_server.start()
 
-except Exception as error:
-    log.log.fatal(error)
+main_way = threading.Thread(target = main_way, daemon = True)
 
+try:
+    monitoring.start_http_server(8000)
+    main_way.start()
+    print("Monitoring is started")
 
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
+    while 1:
+        pass
+
+except Exception:
+    None

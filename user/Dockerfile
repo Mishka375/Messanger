@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ./system/libs/ ./libs/
 
 EXPOSE 70
+EXPOSE 71
 
 RUN mkdir logs && touch logs/main_log
 
