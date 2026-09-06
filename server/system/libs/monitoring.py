@@ -11,12 +11,14 @@ users_online = Gauge (
     "Users online",
 )
 
+
 messages_count = Counter (
     "messages_count",
     "Total message count"
 )
 
-redis_operations_count = Counter (
+
+redis_request_count = Counter (
     "redis_operations_count",
     "Redis operations count"
 )
@@ -26,10 +28,11 @@ redis_errors_count = Counter (
     "Redis errors count"
 )
 
+
 sql_request_time = Histogram(
     "sql_request_time",
     "SQL time of request",
-    buckets=(0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0)
+    buckets=(0.005, 0.01, 0.05, 0.2, 0.5, 1.0, 5.0)
 )
 
 sql_request_count = Counter (
@@ -48,8 +51,29 @@ sql_request_queue = Gauge (
 )
 
 
-"""
+request_time = Histogram (
+    "request_time",
+    "Request time",
+    buckets=(0.05, 0.1, 1.0, 3.0, 5.0, 7.0, 10.0)
+)
 
+request_count = Counter (
+    "request_count",
+    "Total request count"
+)
+
+request_errors = Counter (
+    "request_errors",
+    "Request errors"
+)
+
+request_queue = Gauge (
+    "request_queue",
+    "Request queue"
+)
+
+
+"""
 Counter
 Счетчик только +
 .inc()       (+1)
