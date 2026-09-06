@@ -10,6 +10,22 @@ import uuid
 import time
 
 
+from flask import Flask, jsonify
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
+
+
+@app.route('/reg')
+def reg():
+    return jsonify({
+        "status": "success",
+        "message": "Привет из микросервиса Бэкенда!",
+        "services": ["frontend", "backend", "ingress"]
+    })
+
+
 split_symbol = "*;:;*"
 
 HOST = "0.0.0.0"
@@ -394,3 +410,7 @@ try:
 
 except Exception as error:
     log.log.fatal(error)
+
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=5000)
