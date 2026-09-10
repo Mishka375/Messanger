@@ -65,6 +65,7 @@ def ent():
         "chats":       result["chats_data"],
     }), 200
 
+
 @app.route('/health')
 def health():
     return jsonify({"status": "ok"}), 200

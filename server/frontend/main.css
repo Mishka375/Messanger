@@ -9,7 +9,7 @@ body {
     text-shadow: 0px 0px 10px #657bfa;
 }
 
-.loging_card {
+.registry_card {
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -21,7 +21,32 @@ body {
     user-select: none;
 
     width: 600px;
-    height: 200px;
+    height: 350px;
+
+    padding: 10px;
+
+    background: linear-gradient(90deg, #040f88, #040f00);
+
+    color: #ddfff5;
+    text-shadow: 0px 0px 2px #657bfa;
+
+    border: 2px solid #7060ff;
+    border-radius: 10px;
+}
+
+.enter_card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    margin: 150px auto;
+
+    font-family: Arial, sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+
+    width: 600px;
+    height: 225px;
 
     padding: 10px;
 
@@ -73,7 +98,7 @@ body {
     margin: 1% auto;
 
     width: 75%;
-    height: 15%;
+    height: 25px;
 
     padding: 10px;
 
