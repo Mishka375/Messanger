@@ -1,0 +1,180 @@
+body {
+    background-color: #00021a;
+}
+
+.title_card {
+    margin: 1px auto;
+
+    color: #ddf1ff;
+    text-shadow: 0px 0px 10px #657bfa;
+}
+
+.loging_card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    margin: 150px auto;
+
+    font-family: Arial, sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+
+    width: 600px;
+    height: 200px;
+
+    padding: 10px;
+
+    background: linear-gradient(90deg, #040f88, #040f00);
+
+    color: #ddfff5;
+    text-shadow: 0px 0px 2px #657bfa;
+
+    border: 2px solid #7060ff;
+    border-radius: 10px;
+}
+
+.hight_panel_card{
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+
+
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    margin: 0px auto;
+
+    font-family: Arial, sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+
+    width: 98%;
+    height: 40px;
+
+    padding: 10px;
+
+    background: linear-gradient(180deg, #040f88, #040f00);
+
+    color: #ddfff5;
+    text-shadow: 0px 0px 2px #657bfa;
+
+    border: 2px solid #7060ff;
+    border-radius: 0px 0px 10px 10px;
+}
+
+.input_login_card {
+    display: block;
+    width: 100%;
+    margin-bottom: 10px;
+
+    margin: 1% auto;
+
+    width: 75%;
+    height: 15%;
+
+    padding: 10px;
+
+    background: #040f88;
+
+    color: #ddf1ff;
+    text-shadow: 0px 0px 2px #657bfa;
+
+    border: 2px solid #7060ff;
+    border-radius: 10px;
+}
+
+input:focus {
+    outline: 2px solid #ccd4ff;    
+}
+
+.menu_button_card {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+
+
+    display: block;
+    width: 80px;
+    height: 40px;
+    margin-bottom: 10px;
+
+    margin: 3px 7px;
+
+    font-family: Arial, sans-serif;
+
+    padding: 10px;
+
+    background: linear-gradient(135deg, #040f88, #040f00);
+
+    color: #ddfff5;
+    text-shadow: 0px 0px 2px #657bfa;
+
+    border: 2px solid #7060ff;
+    border-radius: 10px;
+}
+
+.menu_button_card:hover {
+    color: #657bfa;
+    box-shadow: 0 0 10px #3a46c9;
+}
+
+.menu_button_card:active {
+    transform: scale(0.98);
+}
+
+.simple_button_card {
+    display: block;
+    width: 10%;
+    margin-bottom: 10px;
+
+    margin: 1%;
+
+    font-family: Arial, sans-serif;
+
+    width: 75%;
+    height: 15%;
+
+    padding: 10px;
+
+    background: linear-gradient(90deg, #040f88, #040f00);
+
+    color: #ddfff5;
+    text-shadow: 0px 0px 2px #657bfa;
+
+    border: 2px solid #7060ff;
+    border-radius: 10px;
+}
+
+.enter_button_card {
+    display: block;
+    margin-bottom: 10px;
+
+    margin: 1% auto;
+
+    font-family: Arial, sans-serif;
+
+    width: 45%;
+    height: 45px;
+
+    padding: 10px;
+
+    background: linear-gradient(90deg, #040f88, #040f00);
+
+    color: #ddfff5;
+    text-shadow: 0px 0px 2px #657bfa;
+
+    border: 2px solid #7060ff;
+    border-radius: 10px;
+}
+
+.enter_button_card:hover {
+    color: #657bfa;
+    box-shadow: 0 0 10px #3a46c9;
+}
+
+.enter_button_card:active {
+    transform: scale(0.98);
+}

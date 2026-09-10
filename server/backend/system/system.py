@@ -1,126 +1,81 @@
 from libs import monitoring
-from libs import server
 from libs import errors
 from libs import log
 import database
 
 import functools
-import pickle
 import uuid
 import time
 
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
 
 
-@app.route('/reg')
+@app.route('/registry', methods=['POST'])
 def reg():
+    data = request.get_json() or {}
+
+    name = data.get('name')
+    login = data.get('login')
+    password = data.get('password')
+
+    if not login:
+        return jsonify({"error":"Необходим логин"}), 400
+
+    try:
+        register(login, password, name)
+
+    except errors.IncorrectLogin:
+        return jsonify({"error": "Логин уже занят"}), 409
+    except errors.SQLValueIsNull:
+        return jsonify({"error": "Не хватает данных"}), 400
+    except Exception:
+        log.log.exception("reg failed")
+        return jsonify({"error": "Внутренняя ошибка"}), 500
+
+    return jsonify({"message":"Пользователь зарегестрирнован"})
+
+@app.route('/enter', methods=['POST'])
+def ent():
+    data = request.get_json() or {}
+
+    login = data.get('login')
+    password = data.get('password')
+
+    if not login or not password:
+        return jsonify({"error": "Нужны логин и пароль"}), 400
+
+    try:
+        result = enter(login, password)
+    except errors.IncorrectEnter:
+        return jsonify({"error": "Неверный логин или пароль"}), 401
+    except errors.IncorrectKey:
+        return jsonify({"error": "Ключ уже существует"}), 409
+    except Exception:
+        log.log.exception("enter failed")
+        return jsonify({"error": "Ошибка входа"}), 500
+
     return jsonify({
-        "status": "success",
-        "message": "Привет из микросервиса Бэкенда!",
-        "services": ["frontend", "backend", "ingress"]
-    })
+        "session_key": result["session_key"],
+        "name":        result["user_name"],
+        "chats":       result["chats_data"],
+    }), 200
+
+@app.route('/health')
+def health():
+    return jsonify({"status": "ok"}), 200
 
 
-split_symbol = "*;:;*"
+try:
+    count = database.users_execute("SELECT COUNT(*) FROM users;")
+    monitoring.users_total.set(int(count[0][0]))
+except Exception:
+    log.log.exception("init metrics failed")
 
-HOST = "0.0.0.0"
-SERV_PORT = 70
-
-serv = server.Server()
-serv.create_socket(host = HOST, port = SERV_PORT)
-serv.start()
-
-count = database.users_execute("SELECT COUNT(*) FROM users;")
-monitoring.users_total.set(int(count[0][0]))
-
-
-def send(func) -> None:
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            conn = kwargs.pop("connect")
-            out = func(*args, **kwargs)
-
-            correct = out[0]
-            result = out[1]
-
-            serv.send(correct, conn)
-
-            if result is None:
-                pass
-
-            elif type(result) is list:
-                for value in result:
-                    if type(value) is str | bytes:
-                        serv.send(value, conn)
-                    elif type(value) is list:
-                        serv.send(pickle.dumps(value), conn)
-                    else:
-                        serv.send(str(value), conn)
-
-                    time.sleep(0.1)
-
-        except Exception as error:
-            log.log.error(error)
-
-        return None
-    return wrapper
-
-def errors_view(func) -> list:
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        res = None
-        correct = "1"
-
-        try:
-            res = func(*args, **kwargs)
-            correct = "0"
-
-        except errors.RedisError:
-            correct = "100"
-        except errors.RedisDataError:
-            correct = "101"
-        except errors.RedisTimeoutError:
-            correct = "102"
-        except errors.RedisBusyError:
-            correct = "103"
-
-        except errors.SQLError:
-            correct = "200"
-        except errors.SQLValueExist:
-            correct = "201"
-        except errors.SQLValueIsNull:
-            correct = "202"
-        except errors.SQLRequestError:
-            correct = "203"
-        except errors.SQLDataError:
-            correct = "204"
-
-        except errors.IncorrectData:
-            correct = "300"
-        except errors.IncorrectLogin:
-            correct = "301"
-        except errors.IncorrectEnter:
-            correct = "302"
-        except errors.IncorrectKey:
-            correct = "303"
-        except errors.IncorrectConnect:
-            correct = "304"
-
-        except errors.ChatError:
-            correct = "400"
-
-        except Exception as error:
-            log.log.error(error)
-
-        return [correct, res]
-
-    return wrapper
 
 def metrics(func) -> None:
     @functools.wraps(func)
@@ -147,10 +102,8 @@ def key_gen() -> str:
     return str(uuid.uuid4())
 
 
-@send
-@errors_view
 @metrics
-def register(key: str, login: str, password: str, name: str) -> None:
+def register(login: str, password: str, name: str) -> None:
     try:
         database.users_execute("INSERT INTO users (login, password) VALUES (%s, %s);", (login, password))
 
@@ -162,7 +115,7 @@ def register(key: str, login: str, password: str, name: str) -> None:
 
         id = int(id[0][0])
 
-        database.users_execute("INSERT INTO personal VALUES (%s, %s, %s);", (id, "^"+login, name))
+        database.users_execute("INSERT INTO personal (id, identificator, name) VALUES (%s, %s, %s);", (id, "^"+login, name))
 
         monitoring.users_total.inc()
 
@@ -180,10 +133,8 @@ def register(key: str, login: str, password: str, name: str) -> None:
         log.log.error(error)
         raise
 
-@send
-@errors_view
 @metrics
-def enter (key: str, login: str, password: str) -> list:
+def enter (login: str, password: str) -> list:
     try:
         id = database.users_execute("SELECT id FROM users WHERE login=%s AND password=%s;", (login, password))
 
@@ -210,14 +161,12 @@ def enter (key: str, login: str, password: str) -> list:
         if user_name is None:
             raise errors.IncorrectEnter("Incorrect login or password")
 
-        return [split_symbol.join([session_key, user_name[0][0]]), chats_data]
-        
+        return {"session_key":session_key, "chats_data":chats_data, "user_name":user_name[0][0]}
+
     except Exception as error:
         log.log.error(error)
         raise
 
-@send
-@errors_view
 @metrics
 def out (key: str) -> None:
     try:      
@@ -232,8 +181,6 @@ def out (key: str) -> None:
         log.log.error(error)
         raise
 
-@send
-@errors_view
 @metrics
 def new_chat (key: str, user_link: str, name: str) -> list:
     try:
@@ -261,18 +208,16 @@ def new_chat (key: str, user_link: str, name: str) -> list:
                 log.log.warning("Chat is not found")
                 raise errors.ChatError
 
-            return [int(chat_id[0][0])]
-
         else:
             log.log.warning(f"Chat {name} wasn't created, same id")
             raise errors.ChatError("One user in chat")
+        
+        return {"chat_id": int(chat_id[0][0])}
 
     except Exception as error:
         log.log.error(error)
         raise
 
-@send
-@errors_view
 @metrics
 def choose_chat (key: str, chat_name: str) -> list:
     try:
@@ -280,7 +225,7 @@ def choose_chat (key: str, chat_name: str) -> list:
             log.log.warning("Key is not exist")
             raise errors.IncorrectKey("Key is not exist")
 
-        id = id = int(database.redis_sessions_get(key))
+        id = int(database.redis_sessions_get(key))
 
         chat_id = database.chats_execute("SELECT id FROM chats WHERE name=%s AND (user_1 = %s OR user_2 = %s);", (chat_name, id, id))
 
@@ -291,18 +236,14 @@ def choose_chat (key: str, chat_name: str) -> list:
         chat_id = int(chat_id[0][0])
 
         log.log.debug(f"Chat {chat_name} is chossed")
-        return [chat_id]
+        return {"chat_id":chat_id}
     
     except Exception as error:
-        monitoring.request_errors.inc()
         log.log.error(error)
         raise
 
-@send
-@errors_view
 @metrics
 def message (key: str, chat_id: int, message: str) -> None:
-    global connects
     try:
         if not check_session(key):
             log.log.warning("Key is not exist")
@@ -317,6 +258,8 @@ def message (key: str, chat_id: int, message: str) -> None:
             raise errors.IncorrectEnter("User is not exist")
 
         sender_name = sender_name[0][0]
+
+        log.log.debug(f"User <{sender_id}:{sender_name}> send <{message}>")
 
         database.chats_execute("INSERT INTO messages (user_id, chat_id, text) VALUES (%s, %s, %s);", (sender_id, chat_id, message))
 
@@ -334,83 +277,6 @@ def check_session(key: str) -> bool:
     return False
 
 
-try:
-    monitoring.start_http_server(8000)
-    print("Monitoring is started")
-
-    while 1:
-        try:
-            conn = serv.accept()
-            log.log.info("connect")
-            request = serv.get_message(user=conn).decode()
-
-            if request == "1":
-                session_key = key_gen()
-
-                log.log.debug(f"new session: {session_key}")
-
-                database.redis_sessions_set(session_key, 0)
-
-                serv.send(session_key, conn)
-                serv.disconnect_user(conn)
-
-                continue
-
-            request = request.split(split_symbol)
-
-            session_key = request[0]
-
-            if not check_session(session_key):
-                serv.send("303")
-                continue
-
-            log.log.debug(f"request: {request[1]}")
-
-            match request[1]:
-                case "register":
-                    try:
-                        register(session_key, request[2], request[3], request[4], connect=conn)
-                    except Exception as error:
-                        log.log.error(error)
-
-                case "enter":
-                    try:
-                        enter(session_key, request[2], request[3], connect=conn)
-                    except Exception as error:
-                        log.log.error(error)
-
-                case "new_chat":
-                    try:
-                        new_chat(session_key, request[2], request[3], connect=conn)
-                    except Exception as error:
-                        log.log.error(error)
-
-                case "choose_chat":
-                    try:
-                        choose_chat(session_key, request[2], connect=conn)
-                    except Exception as error:
-                        log.log.error(error)
-
-                case "message":
-                    try:
-                        message(session_key, int(request[2]), request[3], connect=conn)
-                    except Exception as error:
-                        log.log.error(error)
-
-                case "out":
-                    try:
-                        out(session_key, connect=conn)
-                    except Exception as error:
-                        log.log.error(error)
-
-            serv.disconnect_user(conn)
-
-        except Exception as error:
-            log.log.error(error)
-
-except Exception as error:
-    log.log.fatal(error)
-
-
 if __name__ == "__main__":
+    monitoring.start_http_server(8000)
     app.run(host='0.0.0.0', port=5000)

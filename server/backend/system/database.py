@@ -23,7 +23,6 @@ connect_users = psycopg2.connect(
     host=os.environ["DATABASE_HOST_USERS"],
     port=int(os.environ["DATABASE_PORT"])
 )
-cursor_users = connect_users.cursor()
 
 connect_chats = psycopg2.connect(
     dbname=os.environ["DATABASE_NAME_CHATS"],
@@ -32,7 +31,6 @@ connect_chats = psycopg2.connect(
     host=os.environ["DATABASE_HOST_CHATS"],
     port=int(os.environ["DATABASE_PORT"])
 )
-cursor_chats = connect_chats.cursor()
 
 
 def redis_monitoring(func):
@@ -134,6 +132,7 @@ def redis_sessions_del(key) -> None:
 @sql_monitoring
 def users_execute(command: str, params: None | tuple = None) -> list | None:
     try:
+        cursor_users = connect_users.cursor()
         cursor_users.execute(command, params)
         connect_users.commit()
 
@@ -175,9 +174,13 @@ def users_execute(command: str, params: None | tuple = None) -> list | None:
         connect_users.rollback()
         raise
 
+    finally:
+        cursor_users.close()
+
 @sql_monitoring
 def chats_execute(command: str, params: None | tuple = None) -> list | None:  
     try:
+        cursor_chats = connect_chats.cursor()
         cursor_chats.execute(command, params)
         connect_chats.commit()
 
@@ -218,3 +221,6 @@ def chats_execute(command: str, params: None | tuple = None) -> list | None:
     except Exception:
         connect_chats.rollback()
         raise
+
+    finally:
+        cursor_chats.close()

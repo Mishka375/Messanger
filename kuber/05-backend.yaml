@@ -1,0 +1,66 @@
+# 03-backend.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: my-chat-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: docker.io/library/backend:1.0.0
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5000
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: app-secrets
+        env:
+        - name: REDIS_HOST_SESSIONS
+          value: "redis-sessions"
+        - name: DATABASE_HOST_USERS
+          value: "users-db"
+        - name: DATABASE_HOST_CHATS
+          value: "chats-db"
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: REDIS_PORT_SESSIONS
+          value: "6379"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: my-chat-app
+spec:
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+    - name: metrics
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP

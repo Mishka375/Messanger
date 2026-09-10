@@ -6,7 +6,7 @@ services:
         container_name: backend
         ports:
             - 8000:8000
-            - 70:70
+            - 5000:5000
         environment:
             DATABASE_HOST_USERS: users_db
             DATABASE_NAME_USERS: users
@@ -28,6 +28,11 @@ services:
         networks:
             - local
         restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/health"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
 
 
 

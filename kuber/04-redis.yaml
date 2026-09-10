@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-sessions
+  namespace: my-chat-app
+spec:
+  ports:
+    - port: 6379
+  selector:
+    app: redis-sessions
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-sessions
+  namespace: my-chat-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-sessions
+  template:
+    metadata:
+      labels:
+        app: redis-sessions
+    spec:
+      containers:
+      - name: redis
+        image: redis:8-alpine
+        ports:
+        - containerPort: 6379
