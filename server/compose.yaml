@@ -1,7 +1,7 @@
 services:
     backend:
         build:
-            context: ./system
+            context: ./backend/system
             dockerfile: Dockerfile
         container_name: backend
         ports:
@@ -34,14 +34,25 @@ services:
             timeout: 5s
             retries: 5
 
-
+    frontend:
+        build:
+            context: ./frontend
+        container_name: frontend
+        ports:
+            - "8080:80"
+        depends_on:
+            backend:
+                condition: service_healthy
+        networks:
+            - local
+        restart: unless-stopped
 
     users_db:
         image: postgres:18-alpine
         container_name: users_db
         volumes:
             - users_data:/var/lib/postgresql
-            - ./database/users/db_init:/docker-entrypoint-initdb.d
+            - ./backend/database/users/db_init:/docker-entrypoint-initdb.d
         environment:
             POSTGRES_DB: users
             POSTGRES_USER: postgres
@@ -60,7 +71,7 @@ services:
         container_name: chats_db
         volumes:
             - chats_data:/var/lib/postgresql
-            - ./database/chats/db_init:/docker-entrypoint-initdb.d
+            - ./backend/database/chats/db_init:/docker-entrypoint-initdb.d
         environment:
             POSTGRES_DB: chats
             POSTGRES_USER: postgres
@@ -88,7 +99,7 @@ services:
         image: prom/prometheus
         container_name: prometheus
         volumes:
-            - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+            - ./backend/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
         ports:
             - "9091:9090"
         healthcheck:

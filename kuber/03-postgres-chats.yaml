@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: chats-db
-  namespace: my-chat-app
+  namespace: messanger
 spec:
   ports:
     - port: 5432
@@ -13,7 +13,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: chats-db
-  namespace: my-chat-app
+  namespace: messanger
 spec:
   serviceName: "chats-db"
   replicas: 1
