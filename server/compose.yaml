@@ -8,17 +8,17 @@ services:
             - 8000:8000
             - 5000:5000
         environment:
-            DATABASE_HOST_USERS: users_db
+            DATABASE_HOST_USERS: users-db
             DATABASE_NAME_USERS: users
 
-            DATABASE_HOST_CHATS: chats_db
+            DATABASE_HOST_CHATS: chats-db
             DATABASE_NAME_CHATS: chats
 
             DATABASE_PORT: 5432
             DATABASE_USER: postgres
             DATABASE_PASSWORD: password
 
-            REDIS_HOST_SESSIONS: redis_sessions
+            REDIS_HOST_SESSIONS: redis-sessions
             REDIS_PORT_SESSIONS: 6379
         depends_on:
             users_db:
@@ -49,9 +49,9 @@ services:
 
     users_db:
         image: postgres:18-alpine
-        container_name: users_db
+        container_name: users-db
         volumes:
-            - users_data:/var/lib/postgresql
+            - users-data:/var/lib/postgresql
             - ./backend/database/users/db_init:/docker-entrypoint-initdb.d
         environment:
             POSTGRES_DB: users
@@ -68,9 +68,9 @@ services:
 
     chats_db:
         image: postgres:18-alpine
-        container_name: chats_db
+        container_name: chats-db
         volumes:
-            - chats_data:/var/lib/postgresql
+            - chats-data:/var/lib/postgresql
             - ./backend/database/chats/db_init:/docker-entrypoint-initdb.d
         environment:
             POSTGRES_DB: chats
@@ -88,7 +88,7 @@ services:
 
     redis_sessions:
         image: redis:8-alpine
-        container_name: redis_sessions
+        container_name: redis-sessions
         networks:
             - local
         restart: unless-stopped
@@ -112,23 +112,27 @@ services:
         restart: unless-stopped
 
     grafana:
-        image: grafana/grafana
+        image: grafana/grafana:latest
         container_name: grafana
         ports:
-            - "3000:3000"
+        - "3000:3000"
         volumes:
-            - grafana_data:/var/lib/grafana
-        depends_on:
-            prometheus:
-                condition: service_healthy
+        - ./backend/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+        - ./backend/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+        - grafana-data:/var/lib/grafana
+        environment:
+        - GF_SECURITY_ADMIN_USER=admin
+        - GF_SECURITY_ADMIN_PASSWORD=admin
         networks:
             - local
         restart: unless-stopped
+        depends_on:
+        - prometheus
 
 volumes:
-    users_data:
-    chats_data:
-    grafana_data:
+    users-data:
+    chats-data:
+    grafana-data:
 
 networks:
     local:

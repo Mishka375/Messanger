@@ -24,20 +24,20 @@ def reg():
     password = data.get('password')
 
     if not login:
-        return jsonify({"error":"Необходим логин"}), 400
+        return jsonify({"error":"You should enter login"}), 400
 
     try:
         register(login, password, name)
 
     except errors.IncorrectLogin:
-        return jsonify({"error": "Логин уже занят"}), 409
+        return jsonify({"error": "Login is exist"}), 409
     except errors.SQLValueIsNull:
-        return jsonify({"error": "Не хватает данных"}), 400
+        return jsonify({"error": "Enter values"}), 400
     except Exception:
         log.log.exception("reg failed")
-        return jsonify({"error": "Внутренняя ошибка"}), 500
+        return jsonify({"error": "Error"}), 500
 
-    return jsonify({"message":"Пользователь зарегестрирнован"})
+    return jsonify({"message":"User is registered"})
 
 @app.route('/enter', methods=['POST'])
 def ent():
@@ -47,17 +47,17 @@ def ent():
     password = data.get('password')
 
     if not login or not password:
-        return jsonify({"error": "Нужны логин и пароль"}), 400
+        return jsonify({"error": "You should enter login and password"}), 400
 
     try:
         result = enter(login, password)
     except errors.IncorrectEnter:
-        return jsonify({"error": "Неверный логин или пароль"}), 401
+        return jsonify({"error": "Uncorrect login or password"}), 401
     except errors.IncorrectKey:
-        return jsonify({"error": "Ключ уже существует"}), 409
+        return jsonify({"error": "Key is exist"}), 409
     except Exception:
         log.log.exception("enter failed")
-        return jsonify({"error": "Ошибка входа"}), 500
+        return jsonify({"error": "Enter error"}), 500
 
     return jsonify({
         "session_key": result["session_key"],

@@ -1,5 +1,0 @@
-docker compose exec backend python -u /main.py
-
-docker stop backend users_db chats_db redis prometheus grafana && docker rm backend users_db chats_db redis prometheus grafana
-
-docker rmi postgres:18-alpine redis:8-alpine prom/prometheus grafana/grafana messanger_beta-backend:latest

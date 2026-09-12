@@ -77,7 +77,7 @@ def sql_monitoring(func):
 
 
 @redis_monitoring
-def redis_sessions_set(key, value, ex = 3600) -> None:
+def redis_sessions_set(key, value, ex = 300) -> None:
     try:
         redis_sessions.set(key, value, ex = ex)
     except redis.DataError:

@@ -1,11 +1,13 @@
 CREATE TABLE users (
-	id SERIAL PRIMARY KEY,
-	login VARCHAR(50) UNIQUE NOT NULL,
-	password VARCHAR(100)
+	id SERIAL,
+	login VARCHAR(50) NOT NULL UNIQUE,
+	password VARCHAR(100),
+	PRIMARY KEY (id)
 );
 
 CREATE TABLE personal (
-	id INT REFERENCES users(id) NOT NULL,
-	identificator VARCHAR(50) UNIQUE NOT NULL,
-    name VARCHAR (50) NOT NULL
+	id INT NOT NULL UNIQUE,
+	identificator VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR (50) NOT NULL,
+	FOREIGN KEY (id) REFERENCES users(id)
 );

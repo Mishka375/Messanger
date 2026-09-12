@@ -1,13 +1,16 @@
 CREATE TABLE chats (
-	id SERIAL PRIMARY KEY,
-	name VARCHAR (100) UNIQUE,
+	id SERIAL,
+	name VARCHAR (100) NOT NULL UNIQUE,
 	user_1 INT NOT NULL,
-	user_2 INT NOT NULL
+	user_2 INT NOT NULL,
+	CHECK (user_1 <> user_2),
+	PRIMARY KEY (id)
 );
 
 CREATE TABLE messages (
 	date TIMESTAMP DEFAULT(current_timestamp),
 	user_id INT NOT NULL,
-    chat_id INT REFERENCES chats(id) NOT NULL,
-	text VARCHAR(1000) NOT NULL
+    chat_id INT NOT NULL,
+	text VARCHAR(1000) NOT NULL,
+	FOREIGN KEY (chat_id) REFERENCES chats(id)
 );

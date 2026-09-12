@@ -1,7 +1,5 @@
 @startuml
 
-!theme amiga
-
 skinparam linetype ortho
 allowmixing
 
@@ -127,18 +125,19 @@ user -left..> kubernetis
 kubernetis -down..> backend
 kubernetis -down..> databases
 
+chats_id -right-> messages_chat_id
 user_id -right-> personal_id
 user_id -right-> messages_user_id
 user_id -right-> chats_user_1
 user_id -right-> chats_user_2
-chats_id -right-> messages_chat_id
 
 user_id -left->  session_keys_user_id
 
 
+reg_name ..> personal_name
 reg_login ..> user_login
 reg_password ..> user_password
-reg_name ..> personal_name
+reg_password -right.. reg_password_confirmation
 
 user_login ..> ent_login
 user_password ..> ent_password
@@ -157,6 +156,4 @@ session_keys_key -[hidden]right- session_keys_user_id
 PostgreSQL -[hidden]down- Redis
 
 ' ============ NOTES ============
-
-
 @enduml

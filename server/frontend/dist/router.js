@@ -9,8 +9,9 @@ async function loadPage(url) {
     app.innerHTML = await res.text();
 
     // Вызываем инициализацию нужной страницы
-    if (url.endsWith('enter.html'))    initEnter();
-    if (url.endsWith('registry.html')) initRegistry();
+    if (url.endsWith('home_unreg.html')) initHomeUnreg();
+    if (url.endsWith('enter.html'))      initEnter();
+    if (url.endsWith('registry.html'))   initRegistry();
   } catch (e) {
     app.innerHTML = '<p>Page is not found</p>';
   }
@@ -26,11 +27,11 @@ document.querySelectorAll('nav a').forEach(a => {
 });
 
 window.addEventListener('popstate', e => {
-  const page = e.state?.page || location.hash.slice(1) || 'enter.html';
+  const page = e.state?.page || location.hash.slice(1) || 'home_unreg.html';
   loadPage(page);
 });
 
-loadPage(location.hash.slice(1) || 'enter.html');
+loadPage(location.hash.slice(1) || 'home_unreg.html');
 
 
 // ---------- Страница "Вход" ----------
@@ -95,11 +96,26 @@ function initRegistry() {
       return;
     }
 
-    out.textContent = 'Готово! Теперь войдите.';
+    out.textContent = 'Success';
     // Автопереход на вход через 1 сек
     setTimeout(() => {
       history.pushState({ page: 'enter.html' }, '', '#enter.html');
       loadPage('enter.html');
     }, 1000);
   });
+}
+
+// ---------- Страница "Вход (не зарегестрированный)" ----------
+function initHomeUnreg() {
+  const ent = document.querySelector('#ent');
+    ent.addEventListener('click', async () => {
+    history.pushState({ page: 'enter.html' }, '', '#enter.html');
+    loadPage('enter.html');
+  });
+
+  const reg = document.querySelector('#reg');
+    reg.addEventListener('click', async () => {
+    history.pushState({ page: 'registry.html' }, '', '#registry.html');
+    loadPage('registry.html');
+    });
 }
