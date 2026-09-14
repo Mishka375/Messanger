@@ -97,11 +97,11 @@ function initRegistry() {
     }
 
     out.textContent = 'Success';
-    // Автопереход на вход через 1 сек
+
     setTimeout(() => {
       history.pushState({ page: 'enter.html' }, '', '#enter.html');
       loadPage('enter.html');
-    }, 1000);
+    }, 100);
   });
 }
 

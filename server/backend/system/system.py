@@ -272,6 +272,24 @@ def message (key: str, chat_id: int, message: str) -> None:
         raise
 
 
+@metrics
+def change_key (key: str) -> str:
+    try:
+        if not check_session(key):
+                log.log.warning("Key is not exist")
+                raise errors.IncorrectKey("Key is not exist")
+
+        new_key = key_gen()
+
+        database.redis_sessions_set(new_key, database.redis_sessions_get(key))
+        database.redis_sessions_del(key)
+
+        return new_key
+
+    except Exception as error:
+        log.log.error(error)
+        raise
+
 def check_session(key: str) -> bool:
     if database.redis_sessions_get(key) is not None:
         return True
