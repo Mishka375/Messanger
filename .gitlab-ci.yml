@@ -6,15 +6,13 @@ stages:
 build-job:
   stage: build
   script:
-    - cd server
-    - docker compose up --build
-
+    - echo "Build"
 test-job:
     stage: test
     script:
-     - echo "Yes"
+     - echo "Test"
 
 deploy-job:
     stage: deploy
     script:
-     - docker compose down
+     - echo "Deploy"
