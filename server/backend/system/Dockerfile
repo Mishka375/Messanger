@@ -12,4 +12,4 @@ COPY libs/ ./libs/
 COPY database.py .
 COPY system.py .
 
-CMD ["python", "system.py"]
+CMD ["gunicorn", "system:app", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:5000"]

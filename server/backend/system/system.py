@@ -6,121 +6,127 @@ import database
 import functools
 import uuid
 import time
+import os
+import uvicorn
+
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Request
+from pydantic import BaseModel, Field
 
 
-from flask import Flask, jsonify, request
-from flask_cors import CORS
+@asynccontextmanager
+async def lifespan (app: FastAPI):
+    monitoring.start_http_server(8000)
 
-app = Flask(__name__)
-CORS(app)
+    for attempt in range(10):
+        try:
+            count = database.users_execute("SELECT COUNT(*) FROM users;")
+            monitoring.users_total.set(int(count[0][0]))
+            break
+
+        except Exception:
+            log.log.warning(f"init metrics attempt {attempt} failed, retrying")
+            time.sleep(2)
+    else:
+        log.log.exception("init metrics failed")
+
+    yield
+app = FastAPI(lifespan=lifespan)
 
 
-@app.route('/registry', methods=['POST'])
-def reg():
-    data = request.get_json() or {}
+class Register_request (BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+    login: str = Field(min_length=1, max_length=100)
+    password: str
 
-    name = data.get('name')
-    login = data.get('login')
-    password = data.get('password')
+class Enter_request (BaseModel):
+    login: str
+    password: str
 
-    if not login:
-        return jsonify({"error":"You should enter login"}), 400
 
+
+
+
+
+@app.post('/registry')
+def reg(body: Register_request):
     try:
-        register(login, password, name)
+        register(body.login, body.password, body.name)
 
     except errors.IncorrectLogin:
-        return jsonify({"error": "Login is exist"}), 409
+        raise HTTPException(status_code=409, detail="Login is exist")
+    
     except errors.SQLValueIsNull:
-        return jsonify({"error": "Enter values"}), 400
+        raise HTTPException(status_code=400, detail="Enter values")
+    
     except Exception:
         log.log.exception("reg failed")
-        return jsonify({"error": "Error"}), 500
+        raise HTTPException(status_code=500, detail="Error")
+    return {"message": "User is registered"}
 
-    return jsonify({"message":"User is registered"})
-
-@app.route('/enter', methods=['POST'])
-def ent():
-    data = request.get_json() or {}
-
-    login = data.get('login')
-    password = data.get('password')
-
-    if not login or not password:
-        return jsonify({"error": "You should enter login and password"}), 400
-
+@app.post('/enter')
+def ent(body: Enter_request):
     try:
-        result = enter(login, password)
-    except errors.IncorrectEnter:
-        return jsonify({"error": "Uncorrect login or password"}), 401
-    except errors.IncorrectKey:
-        return jsonify({"error": "Key is exist"}), 409
-    except Exception:
-        log.log.exception("enter failed")
-        return jsonify({"error": "Enter error"}), 500
+        result = enter(body.login, body.password)
 
-    return jsonify({
+    except errors.SQLValueIsNull:
+        raise HTTPException(status_code=400, detail="Enter values")
+
+    except errors.IncorrectLogin:
+        raise HTTPException(status_code=401, detail="Uncorrect login or password")
+
+    except errors.IncorrectKey:
+        raise HTTPException(status_code=409, detail="Key is exist")
+    
+    except Exception:
+        log.log.exception("reg failed")
+        raise HTTPException(status_code=500, detail="Error")
+    
+    return {
         "session_key": result["session_key"],
         "name":        result["user_name"],
         "chats":       result["chats_data"],
-    }), 200
+    }
 
-
-@app.route('/health')
+@app.get('/health')
 def health():
-    return jsonify({"status": "ok"}), 200
+    return {"status": "ok"}
 
 
-try:
-    count = database.users_execute("SELECT COUNT(*) FROM users;")
-    monitoring.users_total.set(int(count[0][0]))
-except Exception:
-    log.log.exception("init metrics failed")
 
 
-def metrics(func) -> None:
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        monitoring.request_count.inc()
-        monitoring.request_queue.inc()
-        start = time.time()
-        try:
-            res = func(*args, **kwargs)
+@app.middleware("http")
+async def metrics(request: Request, call_next) -> None:
+    monitoring.request_count.inc()
+    monitoring.request_queue.inc()
+    start = time.time()
+    try:
+        result = await call_next(request)
 
-        except Exception:
+        if result.status_code >= 500:
             monitoring.request_errors.inc()
-            raise
+        return result
 
-        finally:
-            monitoring.request_time.observe(time.time() - start)
-            monitoring.request_queue.dec()
+    except Exception:
+        monitoring.request_errors.inc()
+        raise
 
-        return res
-    return wrapper
+    finally:
+        monitoring.request_time.observe(time.time() - start)
+        monitoring.request_queue.dec()
 
 
 def key_gen() -> str:
     return str(uuid.uuid4())
 
 
-@metrics
 def register(login: str, password: str, name: str) -> None:
     try:
-        database.users_execute("INSERT INTO users (login, password) VALUES (%s, %s);", (login, password))
-
-        id = database.users_execute("SELECT id FROM users WHERE login=%s AND password=%s", (login, password))
-
-        if id is None:
-            log.log.warning("User is not found")
-            raise errors.IncorrectEnter("User is not found")
-
-        id = int(id[0][0])
-
-        database.users_execute("INSERT INTO personal (id, identificator, name) VALUES (%s, %s, %s);", (id, "^"+login, name))
+        database.registration(login, password, "^"+login, name)
 
         monitoring.users_total.inc()
 
-        log.log.debug(f"User {name} is created (ID: {id})")
+        log.log.debug(f"User {name} is created")
 
     except errors.SQLValueExist as error:
         log.log.error(error)
@@ -134,16 +140,12 @@ def register(login: str, password: str, name: str) -> None:
         log.log.error(error)
         raise
 
-@metrics
-def enter (login: str, password: str) -> list:
+def enter (login: str, password: str) -> dict:
     try:
-        id = database.users_execute("SELECT id FROM users WHERE login=%s AND password=%s;", (login, password))
+        data = database.enter(login, password)
 
-        if id is None:
-            raise errors.IncorrectEnter("Incorrect login or password")
+        id = data["id"]
 
-        id = int(id[0][0])
-        
         session_key = key_gen()
 
         if check_session(session_key):
@@ -155,20 +157,12 @@ def enter (login: str, password: str) -> list:
         monitoring.users_online.inc()
         log.log.debug(f"User enter (key: {session_key});")
 
-        chats_data = database.chats_execute("SELECT id, name FROM chats WHERE user_1=%s OR user_2=%s", (id, id))
-
-        user_name = database.users_execute("SELECT name FROM personal WHERE id=%s", (id,))
-
-        if user_name is None:
-            raise errors.IncorrectEnter("Incorrect login or password")
-
-        return {"session_key":session_key, "chats_data":chats_data, "user_name":user_name[0][0]}
+        return {"session_key":session_key, "chats_data":data["chats_data"], "user_name":data["user_name"]}
 
     except Exception as error:
         log.log.error(error)
         raise
 
-@metrics
 def out (key: str) -> None:
     try:      
         if not check_session(key):
@@ -182,7 +176,6 @@ def out (key: str) -> None:
         log.log.error(error)
         raise
 
-@metrics
 def new_chat (key: str, user_link: str, name: str) -> list:
     try:
         if not check_session(key):
@@ -219,7 +212,6 @@ def new_chat (key: str, user_link: str, name: str) -> list:
         log.log.error(error)
         raise
 
-@metrics
 def choose_chat (key: str, chat_name: str) -> list:
     try:
         if not check_session(key):
@@ -243,8 +235,7 @@ def choose_chat (key: str, chat_name: str) -> list:
         log.log.error(error)
         raise
 
-@metrics
-def message (key: str, chat_id: int, message: str) -> None:
+def messege (key: str, chat_id: int, messege: str) -> None:
     try:
         if not check_session(key):
             log.log.warning("Key is not exist")
@@ -260,19 +251,18 @@ def message (key: str, chat_id: int, message: str) -> None:
 
         sender_name = sender_name[0][0]
 
-        log.log.debug(f"User <{sender_id}:{sender_name}> send <{message}>")
+        log.log.debug(f"User <{sender_id}:{sender_name}> send <{messege}>")
 
-        database.chats_execute("INSERT INTO messages (user_id, chat_id, text) VALUES (%s, %s, %s);", (sender_id, chat_id, message))
+        database.chats_execute("INSERT INTO messeges (user_id, chat_id, text) VALUES (%s, %s, %s);", (sender_id, chat_id, message))
 
-        log.log.debug(f"Message {message} was sended")
-        monitoring.messages_count.inc()
+        log.log.debug(f"Messege {messege} was sended")
+        monitoring.messeges_count.inc()
     
     except Exception as error:
         log.log.error(error)
         raise
 
 
-@metrics
 def change_key (key: str) -> str:
     try:
         if not check_session(key):
@@ -296,6 +286,13 @@ def check_session(key: str) -> bool:
     return False
 
 
+
+
+
 if __name__ == "__main__":
-    monitoring.start_http_server(8000)
-    app.run(host='0.0.0.0', port=5000)
+    uvicorn.run(
+        "system:app",
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", 5000)),
+        reload=True
+    )

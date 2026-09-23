@@ -3,10 +3,52 @@ from libs import errors
 from libs import log
 
 import functools
-import psycopg2
-import redis
+from typing import Literal, TypedDict
 import time
 import os
+
+import psycopg2
+import redis
+
+from sqlalchemy import URL
+from sqlalchemy import create_engine
+from sqlalchemy import MetaData, Table, Column, Integer, String, ForeignKey
+from sqlalchemy.exc import IntegrityError, ProgrammingError, DataError
+
+from sqlalchemy import insert, select, update, delete, text
+
+
+
+url = URL.create(
+    drivername="postgresql+psycopg2",
+    username=os.environ["DATABASE_USER"],
+    password=os.environ["DATABASE_PASSWORD"],
+    host=os.environ["DATABASE_HOST_USERS"],
+    port=int(os.environ["DATABASE_PORT"]),
+    database=os.environ["DATABASE_NAME_USERS"],
+)
+connect_users = create_engine(url, pool_size=5, max_overflow=10, echo=False)
+
+url = URL.create(
+    drivername="postgresql+psycopg2",
+    username=os.environ["DATABASE_USER"],
+    password=os.environ["DATABASE_PASSWORD"],
+    host=os.environ["DATABASE_HOST_CHATS"],
+    port=int(os.environ["DATABASE_PORT"]),
+    database=os.environ["DATABASE_NAME_CHATS"],
+)
+connect_chats = create_engine(url, pool_size=5, max_overflow=10, echo=False)
+
+
+metadata = MetaData()
+
+
+users = Table("users", metadata, autoload_with=connect_users)
+personal = Table("personal", metadata, autoload_with=connect_users)
+
+chats = Table("chats", metadata, autoload_with=connect_chats)
+messeges = Table("messeges", metadata, autoload_with=connect_chats)
+
 
 
 redis_sessions = redis.Redis(
@@ -15,22 +57,27 @@ redis_sessions = redis.Redis(
     decode_responses=True
 )
 
+# connect_users = psycopg2.connect(
+#     dbname=os.environ["DATABASE_NAME_USERS"],
+#     user=os.environ["DATABASE_USER"],
+#     password=os.environ["DATABASE_PASSWORD"],
+#     host=os.environ["DATABASE_HOST_USERS"],
+#     port=int(os.environ["DATABASE_PORT"])
+# )
 
-connect_users = psycopg2.connect(
-    dbname=os.environ["DATABASE_NAME_USERS"],
-    user=os.environ["DATABASE_USER"],
-    password=os.environ["DATABASE_PASSWORD"],
-    host=os.environ["DATABASE_HOST_USERS"],
-    port=int(os.environ["DATABASE_PORT"])
-)
+# connect_chats = psycopg2.connect(
+#     dbname=os.environ["DATABASE_NAME_CHATS"],
+#     user=os.environ["DATABASE_USER"],
+#     password=os.environ["DATABASE_PASSWORD"],
+#     host=os.environ["DATABASE_HOST_CHATS"],
+#     port=int(os.environ["DATABASE_PORT"])
+# )
 
-connect_chats = psycopg2.connect(
-    dbname=os.environ["DATABASE_NAME_CHATS"],
-    user=os.environ["DATABASE_USER"],
-    password=os.environ["DATABASE_PASSWORD"],
-    host=os.environ["DATABASE_HOST_CHATS"],
-    port=int(os.environ["DATABASE_PORT"])
-)
+
+class Enter_request(TypedDict):
+    id: str
+    chats_data: list
+    user_name: str
 
 
 def redis_monitoring(func):
@@ -129,98 +176,74 @@ def redis_sessions_del(key) -> None:
         raise
 
 
-@sql_monitoring
-def users_execute(command: str, params: None | tuple = None) -> list | None:
+def registration (login: str, password: str, identificator: str, name: str) -> None:
     try:
-        cursor_users = connect_users.cursor()
-        cursor_users.execute(command, params)
-        connect_users.commit()
+        with connect_users.begin() as conn:
+            conn.execute (
+                insert (users),
+                [
+                    {"login": login, "password":password}
+                ],
+            )
 
-        try:
-            res = cursor_users.fetchall()
+            id = conn.execute(select (users).where(users.c.login == login)).scalar()
 
-            if res == []:
-                return None
-            return res
+            conn.execute (
+                insert (personal),
+                [
+                    {"id":id, "identificator":identificator, "name":name}
+                ],
+            )
 
-        except psycopg2.ProgrammingError:
-            return None
+        return None
+
+    except IntegrityError as error:
+        pgcode = getattr(error.orig, "pgcode", None)
+
+        if pgcode == "23505":
+            raise errors.SQLValueExist("Unique value already exist")
         
-        except Exception:
-            raise
-    
-    except psycopg2.IntegrityError as error:
-        if error.pgcode == "23505":
-            connect_users.rollback()
+        elif pgcode == "23502":
+            raise errors.SQLValueIsNull("Request value is null")
+        
+        elif pgcode == "23503":
+            raise errors.SQLForeignKeyError("Foreign key violation")
+        
+        elif pgcode == "23514":
+            raise errors.SQLCheckError("Check constraint violation")
+        
+        else:
+            raise errors.SQLError(pgcode)
+
+def enter (login: str, password: str) -> dict[Enter_request]:
+    try:
+        with connect_users.connect() as conn:
+            user_id = conn.execute(select(users.c.id).where((users.c.login==login)&(users.c.password==password))).scalar()
+
+            if user_id is None:
+                raise errors.IncorrectEnter("Incorrect login or password")
+
+            name = conn.execute(select(personal.c.name).where(personal.c.id==user_id)).scalar()
+
+        with connect_chats.connect() as conn:
+            chats_data = conn.execute(select(chats.c.id, chats.c.name).where((chats.c.user_1==user_id) | (chats.c.user_2==user_id))).fetchall()
+
+        return {"id":user_id, "chats_data":chats_data, "user_name":name}
+
+    except IntegrityError as error:
+        pgcode = getattr(error.orig, "pgcode", None)
+
+        if pgcode == "23505":
             raise errors.SQLValueExist("Unique value already exist")
 
-        elif error.pgcode == "23502":
-            connect_users.rollback()
+        elif pgcode == "23502":
             raise errors.SQLValueIsNull("Request value is null")
 
-        else:
-            connect_users.rollback()
-            raise errors.SQLError(error.pgcode)
+        elif pgcode == "23503":
+            raise errors.SQLForeignKeyError("Foreign key violation")
 
-    except psycopg2.ProgrammingError:
-        connect_users.rollback()
-        raise errors.SQLRequestError("Request is incorrect")
-
-    except psycopg2.DataError:
-        connect_users.rollback()
-        raise errors.SQLDataError("Incorrect data")
-
-    except Exception:
-        connect_users.rollback()
-        raise
-
-    finally:
-        cursor_users.close()
-
-@sql_monitoring
-def chats_execute(command: str, params: None | tuple = None) -> list | None:  
-    try:
-        cursor_chats = connect_chats.cursor()
-        cursor_chats.execute(command, params)
-        connect_chats.commit()
-
-        try:
-            res = cursor_chats.fetchall()
-
-            if res == []:
-                return None
-            return res
-
-        except psycopg2.ProgrammingError:
-            return None
-        
-        except Exception:
-            raise
-    
-    except psycopg2.IntegrityError as error:
-        if error.pgcode == "23505":
-            connect_chats.rollback()
-            raise errors.SQLValueExist("Unique value already exist")
-
-        elif error.pgcode == "23502":
-            connect_chats.rollback()
-            raise errors.SQLValueIsNull("Request value is null")
+        elif pgcode == "23514":
+            raise errors.SQLCheckError("Check constraint violation")
 
         else:
-            connect_chats.rollback()
-            raise errors.SQLError(error.pgcode)
-
-    except psycopg2.ProgrammingError:
-        connect_chats.rollback()
-        raise errors.SQLRequestError("Request is incorrect")
-
-    except psycopg2.DataError:
-        connect_chats.rollback()
-        raise errors.SQLDataError("Incorrect data")
-
-    except Exception:
-        connect_chats.rollback()
-        raise
-
-    finally:
-        cursor_chats.close()
+            raise errors.SQLError(pgcode)

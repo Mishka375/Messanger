@@ -7,7 +7,7 @@ CREATE TABLE chats (
 	PRIMARY KEY (id)
 );
 
-CREATE TABLE messages (
+CREATE TABLE messeges (
 	date TIMESTAMP DEFAULT(current_timestamp),
 	user_id INT NOT NULL,
     chat_id INT NOT NULL,
