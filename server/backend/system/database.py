@@ -118,7 +118,7 @@ def sql_monitoring(func):
 
 
 @redis_monitoring
-def redis_sessions_set(key, value, ex = 300) -> None:
+def redis_sessions_set(key, value, ex = 3600) -> None:
     try:
         redis_sessions.set(key, value, ex = ex)
     except redis.DataError:
@@ -175,18 +175,21 @@ def registration (login: str, password: str, identificator: str, name: str) -> N
         with connect_users.begin() as conn:
             conn.execute (
                 insert (users),
-                [
-                    {"login": login, "password":ph.hash(password)}
-                ],
+                [{
+                    "login": login,
+                    "password":ph.hash(password)
+                }],
             )
 
             id = conn.execute(select (users).where(users.c.login == login)).scalar()
 
             conn.execute (
                 insert (personal),
-                [
-                    {"id":id, "identificator":identificator, "name":name}
-                ],
+                [{
+                    "id":id,
+                    "identificator":identificator,
+                    "name":name
+                }],
             )
 
         return None
@@ -263,12 +266,14 @@ def new_chat (key: str, name: str, user_link: str) -> None:
 
         with connect_chats.begin() as conn:
             if id_1 != id_2:
-                conn.execute(insert(chats),
-                             [{
-                                 "name":name,
-                                 "user_1":id_1,
-                                 "user_2":id_2}],
-                            )
+                conn.execute(
+                    insert(chats),
+                    [{
+                        "name":name,
+                        "user_1":id_1,
+                        "user_2":id_2
+                    }],
+                )
 
                 log.log.debug(f"Chat {name} was created")
 
@@ -305,6 +310,84 @@ def get_chats (key: str) -> list:
             chats_data = conn.execute(select(chats.c.id, chats.c.name).where((chats.c.user_1==user_id) | (chats.c.user_2==user_id))).fetchall()
 
         return [[row[0], row[1]] for row in chats_data]
+
+    except IndexError:
+        raise errors.IncorrectEnter("Incorrect login")
+
+    except IntegrityError as error:
+        pgcode = getattr(error.orig, "pgcode", None)
+
+        if pgcode == "23505":
+            raise errors.SQLValueExist("Unique value already exist")
+
+        elif pgcode == "23502":
+            raise errors.SQLValueIsNull("Request value is null")
+
+        elif pgcode == "23503":
+            raise errors.SQLForeignKeyError("Foreign key violation")
+
+        elif pgcode == "23514":
+            raise errors.SQLCheckError("Check constraint violation")
+
+        else:
+            raise errors.SQLError(pgcode)
+        
+    except VerifyMismatchError:
+        raise errors.IncorrectEnter("Password is incorrect")
+
+def get_messeges (key: str, chat_id: int) -> list:
+    try:
+        user_id = int(redis_sessions_get(key))
+
+        with connect_chats.connect() as conn:
+            res = conn.execute(select(messeges.c.user_id, messeges.c.date, messeges.c.text).where(messeges.c.chat_id==chat_id).order_by(messeges.c.date)).fetchall()
+
+            users_id = conn.execute(select(chats.c.user_1, chats.c.user_2).where(chats.c.id==chat_id)).fetchall()[0]
+
+        with connect_users.connect() as conn:
+            user_2_id = users_id[0] if users_id[0] != user_id else users_id[1]
+            other_name = conn.execute(select(personal.c.name).where(personal.c.id == user_2_id)).scalar() or "Unknown"
+
+            res = [[("" if row[0]==user_id else other_name), row[1], row[2]] for row in res]
+
+        return res
+
+    except IndexError:
+        raise errors.IncorrectEnter("Incorrect chat id")
+
+    except IntegrityError as error:
+        pgcode = getattr(error.orig, "pgcode", None)
+
+        if pgcode == "23505":
+            raise errors.SQLValueExist("Unique value already exist")
+
+        elif pgcode == "23502":
+            raise errors.SQLValueIsNull("Request value is null")
+
+        elif pgcode == "23503":
+            raise errors.SQLForeignKeyError("Foreign key violation")
+
+        elif pgcode == "23514":
+            raise errors.SQLCheckError("Check constraint violation")
+
+        else:
+            raise errors.SQLError(pgcode)
+        
+    except VerifyMismatchError:
+        raise errors.IncorrectEnter("Password is incorrect")
+
+def send_messege (key: str, chat_id: int, text: str) -> None:
+    try:
+        user_id = int(redis_sessions_get(key))
+
+        with connect_chats.begin() as conn:
+            conn.execute(insert(messeges),
+                [{
+                    "user_id":user_id,
+                    "chat_id":chat_id,
+                    "text":text
+                }],
+            )
 
     except IndexError:
         raise errors.IncorrectEnter("Incorrect login")

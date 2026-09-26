@@ -127,7 +127,8 @@ function initHomeUnreg() {
 // ---------- Страница "Сообщения" ----------
 async function initMesseges() {
   const container = document.getElementById('buttons-container');
-  const result = document.getElementById('result');
+
+  cur_chat_id = 0;
 
   container.innerHTML = '';
 
@@ -136,6 +137,12 @@ async function initMesseges() {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
   });
+
+  if (!r.ok) {
+    console.error('HTTP', r.status, await r.text());
+    return;
+  }
+
   const response = await r.json();
 
   const data = response.chats_data;
@@ -151,20 +158,111 @@ async function initMesseges() {
     btn.dataset.chatID = chatId
   
     btn.addEventListener('click', () => {
-        result.textContent = `Открыт чат: ${chatName} (id=${chatId})`;
-        // loadMessages(chatId);
+      cur_chat_id = btn.dataset.chatID;
+      loadMesseges(btn.dataset.chatID);
     });
 
     container.appendChild(btn);
   });
 
   const btn_new_chat = document.querySelector('#new_chat');
-  btn_new_chat.addEventListener('click', async () => {
-    setTimeout(() => {
+  if (btn_new_chat && !btn_new_chat.dataset.bound) {
+    btn_new_chat.dataset.bound = '1';
+    btn_new_chat.addEventListener('click', () => {
       history.pushState({ page: 'create_chat.html' }, '', '#create_chat.html');
       loadPage('create_chat.html');
-    }, 10);
-  })
+    });
+  }
+
+  const btn_send = document.querySelector('#send_messege');
+  if (btn_send && !btn_send.dataset.bound) {
+    btn_send.dataset.bound = '1';
+    btn_send.addEventListener('click', async () => {
+      const input = document.querySelector('#messege_text');
+      const text = input.value;
+      if (!text.trim()) return;
+
+      input.value = '';
+      try {
+        await sendMessege(cur_chat_id, text);
+      } catch (e) {
+        console.error('Send failed:', e);
+        input.value = text;
+      }
+    });
+  }
+}
+
+// ---------- "Загрузка сообщений" ----------
+async function loadMesseges(chat_id) {
+  const container = document.getElementById('messeges');
+
+  container.innerHTML = '';
+
+  const r = await fetch(`${API}/get_messeges`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chat_id })
+  });
+
+  if (!r.ok) {
+    console.error('HTTP', r.status, await r.text());
+    return;
+  }
+
+  const response = await r.json();
+
+  const data = response.messeges;
+
+  if (!Array.isArray(data)) {
+    console.error('Await all package, now:', data);
+    return;
+  }
+
+  data.forEach(([sender, date, text]) => {
+    const el = document.createElement('article');
+    el.className = 'message';
+    el.dataset.sender = sender;
+    el.dataset.date = date;
+
+    const meta = document.createElement('header');
+    meta.className = 'message-meta';
+    meta.textContent = `${sender} · ${formatDate(date)}`;
+
+    const body = document.createElement('div');
+    body.className = 'message-text';
+    body.textContent = text;
+
+    el.append(meta, body);
+    container.appendChild(el);
+  });
+
+  container.scrollTop = container.scrollHeight;
+}
+
+// ---------- "Отправка сообщения" ----------
+async function sendMessege(chat_id, text) {
+  const r = await fetch(`${API}/send_messege`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({chat_id, text})
+  });
+
+  if (!r.ok) {
+    console.error('HTTP', r.status, await r.text());
+    return;
+  }
+
+  const data = await r.json();
+
+  if (!r.ok) {
+    out.textContent = data.error;
+    return;
+  }
+
+  loadMesseges(chat_id);
 }
 
 // ---------- Страница "Создания чата" ----------
@@ -182,6 +280,7 @@ function newChat() {
 
     const r = await fetch(`${API}/new_chat`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({chat_name, user_link })
     });
@@ -197,4 +296,27 @@ function newChat() {
       loadPage('messeges.html');
     }, 10);
   });
+}
+
+
+
+
+
+
+
+function formatDate(value) {
+  const d = new Date(value);
+  if (isNaN(d)) return String(value);
+
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+
+  return sameDay
+    ? d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
 }

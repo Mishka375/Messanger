@@ -1,6 +1,6 @@
 CREATE TABLE chats (
 	id SERIAL,
-	name VARCHAR (100) NOT NULL UNIQUE,
+	name VARCHAR (100) NOT NULL,
 	user_1 INT NOT NULL,
 	user_2 INT NOT NULL,
 	CHECK (user_1 <> user_2),

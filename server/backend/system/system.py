@@ -46,6 +46,12 @@ class New_chat_request (BaseModel):
     chat_name: str
     user_link: str
 
+class Get_messeges (BaseModel):
+    chat_id: int
+
+class Send_messege (BaseModel):
+    chat_id: int
+    text: str
 
 
 @app.post('/registry')
@@ -73,7 +79,7 @@ def ent(body: Enter_request, response: Response):
         response.set_cookie(
             key="session_key",
             value=result["session_key"],
-            max_age=None,
+            max_age=3600,
             path="/",
             secure=False, #!!! Заменить при https
             httponly=True,
@@ -145,12 +151,50 @@ def new_ch(body: New_chat_request, session_key: str = Cookie(...)):
     
     return {"status": "ok"}
 
+@app.post('/get_messeges')
+def get_msg(body: Get_messeges, session_key: str = Cookie(...)):
+    try:
+        res = get_messeges(session_key, body.chat_id)
+
+    except errors.SQLValueIsNull:
+        raise HTTPException(status_code=400, detail="Enter values")
+
+    except errors.IncorrectLogin:
+        raise HTTPException(status_code=401, detail="Uncorrect login or password")
+
+    except errors.IncorrectKey:
+        raise HTTPException(status_code=409, detail="Key is exist")
+
+    except Exception as error:
+        log.log.exception("chat create failed")
+        raise HTTPException(status_code=500, detail=str(error))
+    
+    return {"messeges": res}
+
+@app.post('/send_messege')
+def send_msg(body: Send_messege, session_key: str = Cookie(...)):
+    try:
+        send_messege(session_key, body.chat_id, body.text)
+
+    except errors.SQLValueIsNull:
+        raise HTTPException(status_code=400, detail="Enter values")
+
+    except errors.IncorrectLogin:
+        raise HTTPException(status_code=401, detail="Uncorrect login or password")
+
+    except errors.IncorrectKey:
+        raise HTTPException(status_code=409, detail="Key is exist")
+
+    except Exception as error:
+        log.log.exception("chat create failed")
+        raise HTTPException(status_code=500, detail=str(error))
+    
+    return {"status": "ok"}
+
 
 @app.get('/health')
 def health():
     return {"status": "ok"}
-
-
 
 
 @app.middleware("http")
@@ -254,29 +298,6 @@ def new_chat (key: str, user_link: str, name: str) -> None:
         log.log.error(error)
         raise
 
-def choose_chat (key: str, chat_name: str) -> list:
-    try:
-        if not check_session(key):
-            log.log.warning("Key is not exist")
-            raise errors.IncorrectKey("Key is not exist")
-
-        id = int(database.redis_sessions_get(key))
-
-        chat_id = database.chats_execute("SELECT id FROM chats WHERE name=%s AND (user_1 = %s OR user_2 = %s);", (chat_name, id, id))
-
-        if chat_id is None:
-            log.log.warning("Chat is not found")
-            raise errors.ChatError("Chat is not found")
-
-        chat_id = int(chat_id[0][0])
-
-        log.log.debug(f"Chat {chat_name} is chossed")
-        return {"chat_id":chat_id}
-    
-    except Exception as error:
-        log.log.error(error)
-        raise
-
 def messege (key: str, chat_id: int, messege: str) -> None:
     try:
         if not check_session(key):
@@ -300,6 +321,30 @@ def messege (key: str, chat_id: int, messege: str) -> None:
         log.log.debug(f"Messege {messege} was sended")
         monitoring.messeges_count.inc()
     
+    except Exception as error:
+        log.log.error(error)
+        raise
+
+def get_messeges (key: str, chat_id: int):
+    try:
+        if not check_session(key):
+            log.log.warning("Key is not exist")
+            raise errors.IncorrectKey("Key is not exist")
+
+        return database.get_messeges(key, chat_id)
+
+    except Exception as error:
+        log.log.error(error)
+        raise
+
+def send_messege (key: str, chat_id: int, text: str):
+    try:
+        if not check_session(key):
+            log.log.warning("Key is not exist")
+            raise errors.IncorrectKey("Key is not exist")
+
+        return database.send_messege(key, chat_id, text)
+
     except Exception as error:
         log.log.error(error)
         raise

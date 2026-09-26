@@ -1,7 +1,21 @@
-<button id="new_chat">Create chat</button>
-
 <div class="chats_menu">
-    <div id="buttons-container" class="chats_list"></div>
+  <header class="hight_panel_card">
+    <button class="menu_button_card">Menu</button>
+    <button id="new_chat" class="create_chat_button_card">Create chat</button>
+  </header>
+
+  <aside id="buttons-container" class="chats_list">
+  </aside>
+
+  <main class="chat_area">
+    <div class="message_slide" id="messeges">
+    </div>
+
+    <div class="text_input">
+      <input id="messege_text" type="text">
+      <button id="send_messege">Send</button>
+    </div>
+  </main>
 </div>
 
-<p id="result"></p>
+<p id="out"></p>
