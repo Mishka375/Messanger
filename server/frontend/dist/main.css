@@ -1,5 +1,73 @@
-body {
+html, body {
+    height: 100%;
+    margin: 0;
     background-color: #00021a;
+}
+
+
+
+.chats_menu {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    margin: 0px 0px;
+
+    font-family: Arial, sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+
+    width: 100px;
+    height: 95%;
+
+    padding: 10px;
+
+    background: linear-gradient(90deg, #040f88, #040f00);
+
+    color: #ddfff5;
+    text-shadow: 0px 0px 2px #657bfa;
+
+    border: 2px solid #7060ff;
+    border-radius: 10px;
+
+    overflow: hidden;
+}
+
+.chats_list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding-right: 4px;
+}
+.chats_list::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+
+
+.chats_list button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+
+    font-family: Arial, sans-serif;
+
+    background: linear-gradient(135deg, #040f88, #040f00);
+
+    color: #ddfff5;
+    text-shadow: 0px 0px 2px #657bfa;
+
+    border: 2px solid #7060ff;
+    border-radius: 10px;
 }
 
 .title_card {

@@ -7,7 +7,6 @@ from typing import Literal, TypedDict
 import time
 import os
 
-import psycopg2
 import redis
 
 from sqlalchemy import URL
@@ -17,6 +16,17 @@ from sqlalchemy.exc import IntegrityError, ProgrammingError, DataError
 
 from sqlalchemy import insert, select, update, delete, text
 
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
+
+
+ph = PasswordHasher(
+    time_cost=3,
+    memory_cost=65536,
+    parallelism=1,
+    hash_len=32,
+    salt_len=16
+)
 
 
 url = URL.create(
@@ -56,22 +66,6 @@ redis_sessions = redis.Redis(
     port=int(os.environ["REDIS_PORT_SESSIONS"]),
     decode_responses=True
 )
-
-# connect_users = psycopg2.connect(
-#     dbname=os.environ["DATABASE_NAME_USERS"],
-#     user=os.environ["DATABASE_USER"],
-#     password=os.environ["DATABASE_PASSWORD"],
-#     host=os.environ["DATABASE_HOST_USERS"],
-#     port=int(os.environ["DATABASE_PORT"])
-# )
-
-# connect_chats = psycopg2.connect(
-#     dbname=os.environ["DATABASE_NAME_CHATS"],
-#     user=os.environ["DATABASE_USER"],
-#     password=os.environ["DATABASE_PASSWORD"],
-#     host=os.environ["DATABASE_HOST_CHATS"],
-#     port=int(os.environ["DATABASE_PORT"])
-# )
 
 
 class Enter_request(TypedDict):
@@ -182,7 +176,7 @@ def registration (login: str, password: str, identificator: str, name: str) -> N
             conn.execute (
                 insert (users),
                 [
-                    {"login": login, "password":password}
+                    {"login": login, "password":ph.hash(password)}
                 ],
             )
 
@@ -218,10 +212,11 @@ def registration (login: str, password: str, identificator: str, name: str) -> N
 def enter (login: str, password: str) -> dict[Enter_request]:
     try:
         with connect_users.connect() as conn:
-            user_id = conn.execute(select(users.c.id).where((users.c.login==login)&(users.c.password==password))).scalar()
+            info = conn.execute(select(users.c.id, users.c.password).where(users.c.login==login)).fetchall()
 
-            if user_id is None:
-                raise errors.IncorrectEnter("Incorrect login or password")
+            ph.verify(info[0][1], password)
+
+            user_id = info[0][0]
 
             name = conn.execute(select(personal.c.name).where(personal.c.id==user_id)).scalar()
 
@@ -229,6 +224,9 @@ def enter (login: str, password: str) -> dict[Enter_request]:
             chats_data = conn.execute(select(chats.c.id, chats.c.name).where((chats.c.user_1==user_id) | (chats.c.user_2==user_id))).fetchall()
 
         return {"id":user_id, "chats_data":chats_data, "user_name":name}
+
+    except IndexError:
+        raise errors.IncorrectEnter("Incorrect login")
 
     except IntegrityError as error:
         pgcode = getattr(error.orig, "pgcode", None)
@@ -247,3 +245,88 @@ def enter (login: str, password: str) -> dict[Enter_request]:
 
         else:
             raise errors.SQLError(pgcode)
+        
+    except VerifyMismatchError:
+        raise errors.IncorrectEnter("Password is incorrect")
+
+def new_chat (key: str, name: str, user_link: str) -> None:
+    try:
+        id_1 = int(redis_sessions_get(key))
+        with connect_users.connect() as conn:
+            id_2 = conn.execute(select(personal.c.id).where(personal.c.identificator==user_link)).fetchall()[0][0]
+
+        if id_2 is None:
+            log.log.warning("Link is incorrect")
+            raise errors.IncorrectEnter("Link is incorrect")
+
+        id_2 = int(id_2)
+
+        with connect_chats.begin() as conn:
+            if id_1 != id_2:
+                conn.execute(insert(chats),
+                             [{
+                                 "name":name,
+                                 "user_1":id_1,
+                                 "user_2":id_2}],
+                            )
+
+                log.log.debug(f"Chat {name} was created")
+
+            else:
+                log.log.warning(f"Chat {name} wasn't created, same id")
+                raise errors.ChatError("One user in chat")
+
+    except IndexError:
+        raise errors.IncorrectEnter("Incorrect link")
+
+    except IntegrityError as error:
+        pgcode = getattr(error.orig, "pgcode", None)
+
+        if pgcode == "23505":
+            raise errors.SQLValueExist("Unique value already exist")
+
+        elif pgcode == "23502":
+            raise errors.SQLValueIsNull("Request value is null")
+
+        elif pgcode == "23503":
+            raise errors.SQLForeignKeyError("Foreign key violation")
+
+        elif pgcode == "23514":
+            raise errors.SQLCheckError("Check constraint violation")
+
+        else:
+            raise errors.SQLError(pgcode)
+
+def get_chats (key: str) -> list:
+    try:
+        user_id = int(redis_sessions_get(key))
+
+        with connect_chats.connect() as conn:
+            chats_data = conn.execute(select(chats.c.id, chats.c.name).where((chats.c.user_1==user_id) | (chats.c.user_2==user_id))).fetchall()
+
+        return [[row[0], row[1]] for row in chats_data]
+
+    except IndexError:
+        raise errors.IncorrectEnter("Incorrect login")
+
+    except IntegrityError as error:
+        pgcode = getattr(error.orig, "pgcode", None)
+
+        if pgcode == "23505":
+            raise errors.SQLValueExist("Unique value already exist")
+
+        elif pgcode == "23502":
+            raise errors.SQLValueIsNull("Request value is null")
+
+        elif pgcode == "23503":
+            raise errors.SQLForeignKeyError("Foreign key violation")
+
+        elif pgcode == "23514":
+            raise errors.SQLCheckError("Check constraint violation")
+
+        else:
+            raise errors.SQLError(pgcode)
+        
+    except VerifyMismatchError:
+        raise errors.IncorrectEnter("Password is incorrect")
+

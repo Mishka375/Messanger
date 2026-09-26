@@ -10,3 +10,5 @@ gunicorn
 pydantic
 
 SQLAlchemy
+
+argon2-cffi

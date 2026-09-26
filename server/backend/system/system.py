@@ -10,9 +10,8 @@ import os
 import uvicorn
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response, Cookie
 from pydantic import BaseModel, Field
-
 
 @asynccontextmanager
 async def lifespan (app: FastAPI):
@@ -43,8 +42,9 @@ class Enter_request (BaseModel):
     login: str
     password: str
 
-
-
+class New_chat_request (BaseModel):
+    chat_name: str
+    user_link: str
 
 
 
@@ -59,15 +59,36 @@ def reg(body: Register_request):
     except errors.SQLValueIsNull:
         raise HTTPException(status_code=400, detail="Enter values")
     
-    except Exception:
+    except Exception as error:
         log.log.exception("reg failed")
-        raise HTTPException(status_code=500, detail="Error")
+        raise HTTPException(status_code=500, detail=str(error))
+
     return {"message": "User is registered"}
 
 @app.post('/enter')
-def ent(body: Enter_request):
+def ent(body: Enter_request, response: Response):
     try:
         result = enter(body.login, body.password)
+
+        response.set_cookie(
+            key="session_key",
+            value=result["session_key"],
+            max_age=None,
+            path="/",
+            secure=False, #!!! Заменить при https
+            httponly=True,
+            samesite="lax"
+        )
+
+        response.set_cookie(
+            key="name",
+            value=result["user_name"],
+            max_age=None,
+            path="/",
+            secure=False, #!!! Заменить при https
+            httponly=True,
+            samesite="lax"
+        )
 
     except errors.SQLValueIsNull:
         raise HTTPException(status_code=400, detail="Enter values")
@@ -78,15 +99,52 @@ def ent(body: Enter_request):
     except errors.IncorrectKey:
         raise HTTPException(status_code=409, detail="Key is exist")
     
-    except Exception:
+    except Exception as error:
         log.log.exception("reg failed")
-        raise HTTPException(status_code=500, detail="Error")
+        raise HTTPException(status_code=500, detail=str(error))
     
-    return {
-        "session_key": result["session_key"],
-        "name":        result["user_name"],
-        "chats":       result["chats_data"],
-    }
+    return {"status": "ok"}
+
+@app.post('/messeges')
+def mes(session_key: str = Cookie(...)):
+    try:
+        result = get_chats(session_key)
+
+    except errors.SQLValueIsNull:
+        raise HTTPException(status_code=400, detail="Enter values")
+
+    except errors.IncorrectLogin:
+        raise HTTPException(status_code=401, detail="Uncorrect login or password")
+
+    except errors.IncorrectKey:
+        raise HTTPException(status_code=409, detail="Key is exist")
+    
+    except Exception as error:
+        log.log.exception("reg failed")
+        raise HTTPException(status_code=500, detail=str(error))
+    
+    return {"chats_data": result}
+
+@app.post('/new_chat')
+def new_ch(body: New_chat_request, session_key: str = Cookie(...)):
+    try:
+        new_chat(session_key, body.user_link, body.chat_name)
+
+    except errors.SQLValueIsNull:
+        raise HTTPException(status_code=400, detail="Enter values")
+
+    except errors.IncorrectLogin:
+        raise HTTPException(status_code=401, detail="Uncorrect login or password")
+
+    except errors.IncorrectKey:
+        raise HTTPException(status_code=409, detail="Key is exist")
+
+    except Exception as error:
+        log.log.exception("chat create failed")
+        raise HTTPException(status_code=500, detail=str(error))
+    
+    return {"status": "ok"}
+
 
 @app.get('/health')
 def health():
@@ -176,37 +234,21 @@ def out (key: str) -> None:
         log.log.error(error)
         raise
 
-def new_chat (key: str, user_link: str, name: str) -> list:
+def get_chats (key: str) -> list:
+    try:
+        return database.get_chats(key)
+
+    except Exception as error:
+            log.log.error(error)
+            raise
+
+def new_chat (key: str, user_link: str, name: str) -> None:
     try:
         if not check_session(key):
             log.log.warning("Key is not exist")
             raise errors.IncorrectKey("Key is not exist")
 
-        id_1 = int(database.redis_sessions_get(key))
-
-        id_2 = database.users_execute("SELECT id FROM personal WHERE identificator=%s;", (user_link,))
-
-        if id_2 is None:
-            log.log.warning("Link is incorrect")
-            raise errors.IncorrectEnter("Link is incorrect")
-
-        id_2 = int(id_2[0][0])
-
-        if id_1 != id_2:
-            database.chats_execute("INSERT INTO chats (name, user_1, user_2) VALUES (%s, %s, %s);", (name, id_1, id_2))
-            log.log.debug(f"Chat {name} was created")
-
-            chat_id = database.chats_execute("SELECT id FROM chats WHERE name=%s AND user_1=%s AND user_2=%s", (name, id_1, id_2))
-
-            if chat_id is None:
-                log.log.warning("Chat is not found")
-                raise errors.ChatError
-
-        else:
-            log.log.warning(f"Chat {name} wasn't created, same id")
-            raise errors.ChatError("One user in chat")
-        
-        return {"chat_id": int(chat_id[0][0])}
+        database.new_chat(key, name, user_link)
 
     except Exception as error:
         log.log.error(error)
