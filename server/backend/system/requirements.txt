@@ -4,5 +4,9 @@ prometheus-client
 
 pytest
 
-flask
-flask-cors
+fastapi[standard]
+uvicorn[standard]
+gunicorn
+pydantic
+
+SQLAlchemy
