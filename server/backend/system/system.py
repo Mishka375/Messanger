@@ -80,7 +80,7 @@ def ent(body: Enter_request, response: Response):
             key="session_key",
             value=result["session_key"],
             max_age=3600,
-            path="/",
+            path="/api/messeges",
             secure=False, #!!! Заменить при https
             httponly=True,
             samesite="lax"
@@ -89,8 +89,8 @@ def ent(body: Enter_request, response: Response):
         response.set_cookie(
             key="name",
             value=result["user_name"],
-            max_age=None,
-            path="/",
+            max_age=3600,
+            path="/api/messeges",
             secure=False, #!!! Заменить при https
             httponly=True,
             samesite="lax"

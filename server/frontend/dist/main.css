@@ -1,8 +1,18 @@
+:root {
+  --main-background-color: #00021a;
+  --main-text-color: #ddfff5;
+  --main-gradient-color: linear-gradient(90deg, #040f88, #00020f);
+  --main-text-shadow-color: 0px 0px 2px #657bfa;
+  --main-border-color: 2px solid #7060ff;
+}
+
+
+
 html, body {
     height: 100%;
     width: 100%;
     margin: 0;
-    background-color: #00021a;
+    background-color: var(--main-background-color);
     font-family: Arial, sans-serif;
 }
 
@@ -24,11 +34,11 @@ html, body {
     height: 100vh;
     padding: 10px;
 
-    background: linear-gradient(90deg, #040f88, #040f00);
-    color: #ddfff5;
-    text-shadow: 0px 0px 2px #657bfa;
+    background: var(--main-gradient-color);
+    color: var(--main-text-color);
+    text-shadow: var(--main-text-shadow-color);
 
-    border: 2px solid #7060ff;
+    border: var(--main-border-color);
     border-radius: 10px;
 
     overflow: hidden;
@@ -44,8 +54,8 @@ html, body {
     gap: 8px;
     padding: 8px;
 
-    background: #0a1470;
-    border-right: 2px solid #7060ff;
+    background: var(--main-background-color);
+    border-right: var(--main-border-color);
     border-radius: 8px;
 
 
@@ -66,11 +76,11 @@ html, body {
 
     font-family: inherit;
     font-size: 14px;
-    color: #ddfff5;
+    color: var(--main-text-color);
     text-shadow: 0 0 2px #657bfa;
 
-    background: linear-gradient(135deg, #040f88, #040f00);
-    border: 2px solid #7060ff;
+    background: var(--main-gradient-color);
+    border: var(--main-border-color);
     border-radius: 10px;
     cursor: pointer;
     transition: background 0.15s, box-shadow 0.15s, transform 0.05s;
@@ -93,10 +103,10 @@ html, body {
     overflow-y: auto;
     padding: 16px;
 
-    background: #040f00;
-    border: 2px solid #7060ff;
+    background: var(--main-background-color);
+    border: var(--main-border-color);
     border-radius: 10px;
-    color: #ddfff5;
+    color: var(--main-text-color);
 }
 
 .text_input {
@@ -106,17 +116,17 @@ html, body {
     gap: 8px;
 
     padding: 8px;
-    background: linear-gradient(135deg, #040f88, #040f00);
-    border: 2px solid #7060ff;
+    background: var(--main-gradient-color);
+    border: var(--main-border-color);
     border-radius: 10px;
 }
 
 .text_input input {
     flex: 1;
     padding: 8px 10px;
-    background: #040f00;
-    color: #ddfff5;
-    border: 1px solid #7060ff;
+    background: var(--main-background-color);
+    color: var(--main-text-color);
+    border: var(--main-border-color);
     border-radius: 6px;
     outline: none;
     font-family: inherit;
@@ -125,10 +135,10 @@ html, body {
 .text_input button {
     padding: 8px 16px;
     font-family: inherit;
-    color: #ddfff5;
-    text-shadow: 0 0 2px #657bfa;
-    background: linear-gradient(135deg, #040f88, #040f00);
-    border: 2px solid #7060ff;
+    color: var(--main-text-color);
+    text-shadow: var(--main-text-shadow-color);
+    background: var(--main-gradient-color);
+    border: var(--main-border-color);
     border-radius: 6px;
     cursor: pointer;
 }
@@ -141,8 +151,8 @@ html, body {
 .title_card {
     margin: 1px auto;
 
-    color: #ddf1ff;
-    text-shadow: 0px 0px 10px #657bfa;
+    color: var(--main-text-color);
+    text-shadow: var(--main-text-shadow-color);
 }
 
 .registry_card {
@@ -161,12 +171,12 @@ html, body {
 
     padding: 10px;
 
-    background: linear-gradient(90deg, #040f88, #040f00);
+    background: var(--main-gradient-color);
 
-    color: #ddfff5;
-    text-shadow: 0px 0px 2px #657bfa;
+    color: var(--main-text-color);
+    text-shadow: var(--main-text-shadow-color);
 
-    border: 2px solid #7060ff;
+    border: var(--main-border-color);
     border-radius: 10px;
 }
 
@@ -186,12 +196,12 @@ html, body {
 
     padding: 10px;
 
-    background: linear-gradient(90deg, #040f88, #040f00);
+    background: var(--main-gradient-color);
 
-    color: #ddfff5;
-    text-shadow: 0px 0px 2px #657bfa;
+    color: var(--main-text-color);
+    text-shadow: var(--main-text-shadow-color);
 
-    border: 2px solid #7060ff;
+    border: var(--main-border-color);
     border-radius: 10px;
 }
 
@@ -205,8 +215,8 @@ html, body {
 
     padding: 10px;
 
-    background: linear-gradient(180deg, #040f88, #040f00);
-    border: 2px solid #7060ff;
+    background: var(--main-gradient-color);
+    border: var(--main-border-color);
     border-radius: 10px;
 }
 
@@ -221,12 +231,12 @@ html, body {
 
     padding: 10px;
 
-    background: #040f88;
+    background: var(--main-background-color);
 
-    color: #ddf1ff;
-    text-shadow: 0px 0px 2px #657bfa;
+    color: var(--main-text-color);
+    text-shadow: var(--main-text-shadow-color);
 
-    border: 2px solid #7060ff;
+    border: var(--main-border-color);
     border-radius: 10px;
 }
 
@@ -239,11 +249,11 @@ input:focus {
 
     font-family: inherit;
     font-size: 14px;
-    color: #ddfff5;
-    text-shadow: 0 0 2px #657bfa;
+    color: var(--main-text-color);
+    text-shadow: var(--main-text-shadow-color);
 
-    background: linear-gradient(135deg, #040f88, #040f00);
-    border: 2px solid #7060ff;
+    background: var(--main-gradient-color);
+    border: var(--main-border-color);
     border-radius: 8px;
     cursor: pointer;
     transition: box-shadow 0.15s, transform 0.05s;
@@ -263,11 +273,11 @@ input:focus {
 
     font-family: inherit;
     font-size: 14px;
-    color: #ddfff5;
-    text-shadow: 0 0 2px #657bfa;
+    color: var(--main-text-color);
+    text-shadow: var(--main-text-shadow-color);
 
-    background: linear-gradient(135deg, #040f88, #040f00);
-    border: 2px solid #7060ff;
+    background: var(--main-gradient-color);
+    border: var(--main-border-color);
     border-radius: 8px;
     cursor: pointer;
     transition: box-shadow 0.15s, transform 0.05s;
@@ -296,12 +306,12 @@ input:focus {
 
     padding: 10px;
 
-    background: linear-gradient(90deg, #040f88, #040f00);
+    background: var(--main-gradient-color);
 
-    color: #ddfff5;
-    text-shadow: 0px 0px 2px #657bfa;
+    color: var(--main-text-color);
+    text-shadow: var(--main-text-shadow-color);
 
-    border: 2px solid #7060ff;
+    border: var(--main-border-color);
     border-radius: 10px;
 }
 
@@ -318,12 +328,12 @@ input:focus {
 
     padding: 10px;
 
-    background: linear-gradient(90deg, #040f88, #040f00);
+    background: var(--main-gradient-color);
 
-    color: #ddfff5;
-    text-shadow: 0px 0px 2px #657bfa;
+    color: var(--main-text-color);
+    text-shadow: var(--main-text-shadow-color);
 
-    border: 2px solid #7060ff;
+    border: var(--main-border-color);
     border-radius: 10px;
 }
 
@@ -345,10 +355,10 @@ input:focus {
   padding: 10px 14px;
   margin-bottom: 8px;
 
-  background: #0a1470;
-  border: 1px solid #7060ff;
+  background: var(--main-background-color);
+  border: var(--main-border-color);
   border-radius: 10px;
-  color: #ddfff5;
+  color: var(--main-text-color);
   max-width: 70%;
   word-wrap: break-word;
 }
@@ -356,7 +366,7 @@ input:focus {
 .message-meta {
   font-size: 12px;
   opacity: 0.7;
-  color: #9db2ff;
+  color: var(--main-text-color);
 }
 
 .message-text {

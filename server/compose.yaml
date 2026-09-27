@@ -41,6 +41,9 @@ services:
         container_name: frontend
         ports:
             - "8080:80"
+            - "8443:443"
+        volumes:
+            - ./certbot/conf:/etc/letsencrypt:ro
         depends_on:
             backend:
                 condition: service_healthy
