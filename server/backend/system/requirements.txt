@@ -1,14 +1,24 @@
-psycopg2-binary
-redis
-prometheus-client
-
-pytest
-
+# web
 fastapi[standard]
 uvicorn[standard]
 gunicorn
 pydantic
 
-SQLAlchemy
+# db
+sqlalchemy[asyncio]
+asyncpg
+psycopg2-binary
 
+# cache
+redis
+
+# auth
 argon2-cffi
+
+# metrics
+prometheus-client
+
+# tests
+pytest
+pytest-asyncio
+httpx

@@ -13,25 +13,42 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, Response, Cookie
 from pydantic import BaseModel, Field
 
+import redis.asyncio as redis
+
+import asyncio, json
+from collections import defaultdict
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+
 @asynccontextmanager
 async def lifespan (app: FastAPI):
     monitoring.start_http_server(8000)
 
     for attempt in range(10):
         try:
-            count = database.users_execute("SELECT COUNT(*) FROM users;")
-            monitoring.users_total.set(int(count[0][0]))
+            count = await database.count_users()
+            monitoring.users_total.set(count)
             break
-
         except Exception:
             log.log.warning(f"init metrics attempt {attempt} failed, retrying")
-            time.sleep(2)
+            await asyncio.sleep(2)
     else:
         log.log.exception("init metrics failed")
 
+    task = asyncio.create_task(listener())
     yield
+    task.cancel()
+    await database.users_engine.dispose()
+    await database.chats_engine.dispose()
+
 app = FastAPI(lifespan=lifespan)
 
+rds = redis.Redis(
+    host=os.environ["REDIS_HOST_SESSIONS"],
+    port=int(os.environ["REDIS_PORT_SESSIONS"]),
+    decode_responses=False
+)
+
+rooms: dict[str, set[WebSocket]] = defaultdict(set)
 
 class Register_request (BaseModel):
     name: str = Field(min_length=1, max_length=50)
@@ -55,9 +72,9 @@ class Send_messege (BaseModel):
 
 
 @app.post('/registry')
-def reg(body: Register_request):
+async def reg(body: Register_request):
     try:
-        register(body.login, body.password, body.name)
+        await register(body.login, body.password, body.name)
 
     except errors.IncorrectLogin:
         raise HTTPException(status_code=409, detail="Login is exist")
@@ -72,15 +89,15 @@ def reg(body: Register_request):
     return {"message": "User is registered"}
 
 @app.post('/enter')
-def ent(body: Enter_request, response: Response):
+async def ent(body: Enter_request, response: Response):
     try:
-        result = enter(body.login, body.password)
+        result = await enter(body.login, body.password)
 
         response.set_cookie(
             key="session_key",
             value=result["session_key"],
             max_age=3600,
-            path="/",
+            path="/api/",
             secure=False, #!!! Заменить при https
             httponly=True,
             samesite="lax"
@@ -90,7 +107,7 @@ def ent(body: Enter_request, response: Response):
             key="name",
             value=result["user_name"],
             max_age=3600,
-            path="/",
+            path="/api/",
             secure=False, #!!! Заменить при https
             httponly=True,
             samesite="lax"
@@ -112,9 +129,9 @@ def ent(body: Enter_request, response: Response):
     return {"status": "ok"}
 
 @app.post('/messeges')
-def mes(session_key: str = Cookie(...)):
+async def mes(session_key: str = Cookie(...)):
     try:
-        result = get_chats(session_key)
+        result = await get_chats(session_key)
 
     except errors.SQLValueIsNull:
         raise HTTPException(status_code=400, detail="Enter values")
@@ -132,9 +149,9 @@ def mes(session_key: str = Cookie(...)):
     return {"chats_data": result}
 
 @app.post('/new_chat')
-def new_ch(body: New_chat_request, session_key: str = Cookie(...)):
+async def new_ch(body: New_chat_request, session_key: str = Cookie(...)):
     try:
-        new_chat(session_key, body.user_link, body.chat_name)
+        await new_chat(session_key, body.user_link, body.chat_name)
 
     except errors.SQLValueIsNull:
         raise HTTPException(status_code=400, detail="Enter values")
@@ -152,9 +169,9 @@ def new_ch(body: New_chat_request, session_key: str = Cookie(...)):
     return {"status": "ok"}
 
 @app.post('/get_messeges')
-def get_msg(body: Get_messeges, session_key: str = Cookie(...)):
+async def get_msg(body: Get_messeges, session_key: str = Cookie(...)):
     try:
-        res = get_messeges(session_key, body.chat_id)
+        res = await get_messeges(session_key, body.chat_id)
 
     except errors.SQLValueIsNull:
         raise HTTPException(status_code=400, detail="Enter values")
@@ -165,16 +182,37 @@ def get_msg(body: Get_messeges, session_key: str = Cookie(...)):
     except errors.IncorrectKey:
         raise HTTPException(status_code=409, detail="Key is exist")
 
+    except errors.ChatError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    
+    except errors.RedisTimeoutError:
+        raise HTTPException(status_code=503, detail="Redis unavailable")
+    
     except Exception as error:
         log.log.exception("chat create failed")
         raise HTTPException(status_code=500, detail=str(error))
-    
     return {"messeges": res}
 
 @app.post('/send_messege')
-def send_msg(body: Send_messege, session_key: str = Cookie(...)):
+async def send_msg(body: Send_messege, session_key: str = Cookie(...)):
     try:
-        send_messege(session_key, body.chat_id, body.text)
+        msg = await send_messege(session_key, body.chat_id, body.text)
+
+        for uid in msg["participants"]:
+            sess = await session_by_user(uid)
+            if not sess:
+                continue
+            try:
+                await push(sess, {
+                                "type": "message",
+                                "chat_id": body.chat_id,
+                                "sender_id": msg["user_id"],
+                                "date": msg["date"],
+                                "text": body.text,
+                                })
+            except Exception as e:
+                log.log.warning(f"push failed for user {uid}: {e}")
+                
 
     except errors.SQLValueIsNull:
         raise HTTPException(status_code=400, detail="Enter values")
@@ -185,15 +223,21 @@ def send_msg(body: Send_messege, session_key: str = Cookie(...)):
     except errors.IncorrectKey:
         raise HTTPException(status_code=409, detail="Key is exist")
 
+    except errors.ChatError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    
+    except errors.RedisTimeoutError:
+        raise HTTPException(status_code=503, detail="Redis unavailable")
+
     except Exception as error:
         log.log.exception("chat create failed")
         raise HTTPException(status_code=500, detail=str(error))
-    
+
     return {"status": "ok"}
 
 
 @app.get('/health')
-def health():
+async def health():
     return {"status": "ok"}
 
 
@@ -222,9 +266,9 @@ def key_gen() -> str:
     return str(uuid.uuid4())
 
 
-def register(login: str, password: str, name: str) -> None:
+async def register(login: str, password: str, name: str) -> None:
     try:
-        database.registration(login, password, "^"+login, name)
+        await database.registration(login, password, "^"+login, name)
 
         monitoring.users_total.inc()
 
@@ -242,19 +286,20 @@ def register(login: str, password: str, name: str) -> None:
         log.log.error(error)
         raise
 
-def enter (login: str, password: str) -> dict:
+async def enter (login: str, password: str) -> dict:
     try:
-        data = database.enter(login, password)
+        data = await database.enter(login, password)
 
         id = data["id"]
 
         session_key = key_gen()
 
-        if check_session(session_key):
+        if await check_session(session_key):
             log.log.warning ("Key is exist")
             raise errors.IncorrectKey("Key is exist")
 
-        database.redis_sessions_set(session_key, id)
+        await database.redis_sessions_set(session_key, id)
+        await database.redis_sessions_set(f"user_sessions:{id}", session_key)
 
         monitoring.users_online.inc()
         log.log.debug(f"User enter (key: {session_key});")
@@ -265,101 +310,77 @@ def enter (login: str, password: str) -> dict:
         log.log.error(error)
         raise
 
-def out (key: str) -> None:
-    try:      
-        if not check_session(key):
+async def out (key: str) -> None:
+    try:
+        user_id = await database.redis_sessions_get(key)
+        if user_id is None:
             log.log.warning("Key is incorrect")
             raise errors.IncorrectKey("Key is incorrect")
-        
+
         monitoring.users_online.dec()
-        database.redis_sessions_del(key)
-            
+        await database.redis_sessions_del(key)
+        await database.redis_sessions_del(f"user_sessions:{user_id}")
+
     except Exception as error:
         log.log.error(error)
         raise
 
-def get_chats (key: str) -> list:
+async def get_chats (key: str) -> list:
     try:
-        return database.get_chats(key)
+        return await database.get_chats(key)
 
     except Exception as error:
             log.log.error(error)
             raise
 
-def new_chat (key: str, user_link: str, name: str) -> None:
+async def new_chat (key: str, user_link: str, name: str) -> None:
     try:
-        if not check_session(key):
+        if not await check_session(key):
             log.log.warning("Key is not exist")
             raise errors.IncorrectKey("Key is not exist")
 
-        database.new_chat(key, name, user_link)
+        await database.new_chat(key, name, user_link)
 
     except Exception as error:
         log.log.error(error)
         raise
 
-def messege (key: str, chat_id: int, messege: str) -> None:
+async def get_messeges (key: str, chat_id: int):
     try:
-        if not check_session(key):
-            log.log.warning("Key is not exist")
-            raise errors.IncorrectKey("Key is not exist")
-        
-        sender_id = int(database.redis_sessions_get(key))
-
-        sender_name = database.users_execute("SELECT name FROM personal WHERE id=%s", (sender_id,))
-
-        if sender_name is None:
-            log.log.warning("User is not exist")
-            raise errors.IncorrectEnter("User is not exist")
-
-        sender_name = sender_name[0][0]
-
-        log.log.debug(f"User <{sender_id}:{sender_name}> send <{messege}>")
-
-        database.chats_execute("INSERT INTO messeges (user_id, chat_id, text) VALUES (%s, %s, %s);", (sender_id, chat_id, message))
-
-        log.log.debug(f"Messege {messege} was sended")
-        monitoring.messeges_count.inc()
-    
-    except Exception as error:
-        log.log.error(error)
-        raise
-
-def get_messeges (key: str, chat_id: int):
-    try:
-        if not check_session(key):
+        if not await check_session(key):
             log.log.warning("Key is not exist")
             raise errors.IncorrectKey("Key is not exist")
 
-        return database.get_messeges(key, chat_id)
+        return await database.get_messeges(key, chat_id)
 
     except Exception as error:
         log.log.error(error)
         raise
 
-def send_messege (key: str, chat_id: int, text: str):
+async def send_messege (key: str, chat_id: int, text: str):
     try:
-        if not check_session(key):
+        if not await check_session(key):
             log.log.warning("Key is not exist")
             raise errors.IncorrectKey("Key is not exist")
 
-        return database.send_messege(key, chat_id, text)
+        return await database.send_messege(key, chat_id, text)
 
     except Exception as error:
         log.log.error(error)
         raise
 
 
-def change_key (key: str) -> str:
+async def change_key (key: str) -> str:
     try:
-        if not check_session(key):
+        if not await check_session(key):
                 log.log.warning("Key is not exist")
                 raise errors.IncorrectKey("Key is not exist")
 
         new_key = key_gen()
 
-        database.redis_sessions_set(new_key, database.redis_sessions_get(key))
-        database.redis_sessions_del(key)
+        val = await database.redis_sessions_get(key)
+        await database.redis_sessions_set(new_key, val)
+        await database.redis_sessions_del(key)
 
         return new_key
 
@@ -367,14 +388,58 @@ def change_key (key: str) -> str:
         log.log.error(error)
         raise
 
-def check_session(key: str) -> bool:
-    if database.redis_sessions_get(key) is not None:
+async def check_session(key: str) -> bool:
+    if await database.redis_sessions_get(key) is not None:
         return True
     return False
 
 
+async def send_local(key: str, data: dict):
+    for ws in list(rooms[key]):
+        try:
+            await ws.send_json(data)
+        except Exception as e:
+            log.log.warning(f"WS send failed for {key}: {e}")
+            rooms[key].discard(ws)
 
+async def listener():
+    ps = rds.pubsub()
+    await ps.psubscribe("s:*")
+    async for m in ps.listen():
+        if m["type"] == "pmessage":
+            await send_local(m["channel"].decode()[2:], json.loads(m["data"]))
 
+async def push (key: str, data: dict):
+    await rds.publish(f"s:{key}", json.dumps(data))
+
+@app.websocket("/ws")
+async def ws(ws: WebSocket, session_key: str | None = Cookie(None)):
+    if not session_key:
+        await ws.close(code=1008)
+        return
+
+    try:
+        user_id = await database.redis_sessions_get(session_key)
+    except errors.IncorrectKey:
+        user_id = None
+
+    if user_id is None:
+        await ws.close(code=1008)
+        return
+
+    await ws.accept()
+    rooms[session_key].add(ws)
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        rooms[session_key].discard(ws)
+
+async def session_by_user(user_id: int) -> str | None:
+    try:
+        return await database.redis_sessions_get(f"user_sessions:{user_id}")
+    except errors.IncorrectKey:
+        return None
 
 if __name__ == "__main__":
     uvicorn.run(

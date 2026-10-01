@@ -1,5 +1,6 @@
 const app = document.getElementById('app');
 const API = '/api';
+let cur_chat_id = 0;
 
 // ---------- Роутер ----------
 async function loadPage(url) {
@@ -128,8 +129,6 @@ function initHomeUnreg() {
 async function initMesseges() {
   const container = document.getElementById('buttons-container');
 
-  cur_chat_id = 0;
-
   container.innerHTML = '';
 
   const r = await fetch(`${API}/messeges`, {
@@ -194,6 +193,27 @@ async function initMesseges() {
 }
 
 // ---------- "Загрузка сообщений" ----------
+
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/api/ws`);
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type !== 'message') return;
+    if (String(msg.chat_id) === String(cur_chat_id)) {
+      appendMessage('', msg.date, msg.text);
+    }
+  };
+
+  ws.onclose = (e) => {
+    if (e.code === 1008) return;               // не авторизован — не долбим
+    setTimeout(connectWS, 1000 + Math.random() * 500);
+  };
+}
+connectWS();
+
+
 async function loadMesseges(chat_id) {
   const container = document.getElementById('messeges');
 
@@ -220,24 +240,28 @@ async function loadMesseges(chat_id) {
     return;
   }
 
-  data.forEach(([sender, date, text]) => {
-    const el = document.createElement('article');
-    el.className = 'message';
-    el.dataset.sender = sender;
-    el.dataset.date = date;
+  data.forEach(([sender, date, text]) => appendMessage(sender, date, text));
 
-    const meta = document.createElement('header');
-    meta.className = 'message-meta';
-    meta.textContent = `${sender} · ${formatDate(date)}`;
+  container.scrollTop = container.scrollHeight;
+}
 
-    const body = document.createElement('div');
-    body.className = 'message-text';
-    body.textContent = text;
+function appendMessage(sender, date, text) {
+  const container = document.getElementById('messeges');
+  if (!container) return;
 
-    el.append(meta, body);
-    container.appendChild(el);
-  });
+  const el = document.createElement('article');
+  el.className = 'message';
 
+  const meta = document.createElement('header');
+  meta.className = 'message-meta';
+  meta.textContent = `${sender} · ${formatDate(date)}`;
+
+  const body = document.createElement('div');
+  body.className = 'message-text';
+  body.textContent = text;
+
+  el.append(meta, body);
+  container.appendChild(el);
   container.scrollTop = container.scrollHeight;
 }
 
@@ -256,11 +280,6 @@ async function sendMessege(chat_id, text) {
   }
 
   const data = await r.json();
-
-  if (!r.ok) {
-    out.textContent = data.error;
-    return;
-  }
 
   loadMesseges(chat_id);
 }

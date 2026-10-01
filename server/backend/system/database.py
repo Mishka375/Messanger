@@ -7,7 +7,9 @@ from typing import Literal, TypedDict
 import time
 import os
 
-import redis
+import redis.asyncio as redis
+
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from sqlalchemy import URL
 from sqlalchemy import create_engine
@@ -29,36 +31,80 @@ ph = PasswordHasher(
 )
 
 
-url = URL.create(
-    drivername="postgresql+psycopg2",
+url_users = URL.create(
+    drivername="postgresql+asyncpg",
     username=os.environ["DATABASE_USER"],
     password=os.environ["DATABASE_PASSWORD"],
     host=os.environ["DATABASE_HOST_USERS"],
     port=int(os.environ["DATABASE_PORT"]),
     database=os.environ["DATABASE_NAME_USERS"],
 )
-connect_users = create_engine(url, pool_size=5, max_overflow=10, echo=False)
+engine_users = create_async_engine(
+    url_users,
+    echo=os.getenv("SQL_ECHO", "0") == "1",
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=30,
+    pool_recycle=1800,
+    pool_pre_ping=True,
+)
+connect_users = async_sessionmaker(
+    bind=engine_users,
+    expire_on_commit=False,
+    class_=AsyncSession,
+    autoflush=False,
+)
 
-url = URL.create(
-    drivername="postgresql+psycopg2",
+
+url_chats = URL.create(
+    drivername="postgresql+asyncpg",
     username=os.environ["DATABASE_USER"],
     password=os.environ["DATABASE_PASSWORD"],
     host=os.environ["DATABASE_HOST_CHATS"],
     port=int(os.environ["DATABASE_PORT"]),
     database=os.environ["DATABASE_NAME_CHATS"],
 )
-connect_chats = create_engine(url, pool_size=5, max_overflow=10, echo=False)
-
+engine_chats = create_async_engine(
+    url_chats,
+    echo=os.getenv("SQL_ECHO", "0") == "1",
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=30,
+    pool_recycle=1800,
+    pool_pre_ping=True,
+)
+connect_chats = async_sessionmaker(
+    bind=engine_chats,
+    expire_on_commit=False,
+    class_=AsyncSession,
+    autoflush=False,
+)
 
 metadata = MetaData()
 
+_ref_users = create_engine(URL.create(
+    drivername="postgresql+psycopg2",
+    username=os.environ["DATABASE_USER"],
+    password=os.environ["DATABASE_PASSWORD"],
+    host=os.environ["DATABASE_HOST_USERS"],
+    port=int(os.environ["DATABASE_PORT"]),
+    database=os.environ["DATABASE_NAME_USERS"],
+))
+users    = Table("users",    metadata, autoload_with=_ref_users)
+personal = Table("personal", metadata, autoload_with=_ref_users)
+_ref_users.dispose()
 
-users = Table("users", metadata, autoload_with=connect_users)
-personal = Table("personal", metadata, autoload_with=connect_users)
-
-chats = Table("chats", metadata, autoload_with=connect_chats)
-messeges = Table("messeges", metadata, autoload_with=connect_chats)
-
+_ref_chats = create_engine(URL.create(
+    drivername="postgresql+psycopg2",
+    username=os.environ["DATABASE_USER"],
+    password=os.environ["DATABASE_PASSWORD"],
+    host=os.environ["DATABASE_HOST_CHATS"],
+    port=int(os.environ["DATABASE_PORT"]),
+    database=os.environ["DATABASE_NAME_CHATS"],
+))
+chats    = Table("chats",    metadata, autoload_with=_ref_chats)
+messeges = Table("messeges", metadata, autoload_with=_ref_chats)
+_ref_chats.dispose()
 
 
 redis_sessions = redis.Redis(
@@ -76,12 +122,12 @@ class Enter_request(TypedDict):
 
 def redis_monitoring(func):
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    async def wrapper(*args, **kwargs):
         monitoring.redis_request_count.inc()
         log.log.debug(f"function {func.__name__} called with args: <{args}>, kwargs: <{kwargs}>")
 
         try:
-            res = func(*args, **kwargs)
+            res = await func(*args, **kwargs)
             return res
 
         except Exception as error:
@@ -93,7 +139,7 @@ def redis_monitoring(func):
 
 def sql_monitoring(func):
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    async def wrapper(*args, **kwargs):
         start = time.time()
 
         log.log.debug(f"users command in {func.__name__}: args:<{args}>, kwargs:<{kwargs}>")
@@ -102,7 +148,7 @@ def sql_monitoring(func):
         monitoring.sql_request_queue.inc()
 
         try:
-            res = func(*args, **kwargs)
+            res = await func(*args, **kwargs)
             return res
 
         except Exception as error:
@@ -116,11 +162,21 @@ def sql_monitoring(func):
 
     return wrapper
 
+def _raise_pg(error: IntegrityError) -> None:
+    o = error.orig
+    code = getattr(o, "pgcode", None) or getattr(o, "sqlstate", None)
+    exc = {
+        "23505": errors.SQLValueExist,
+        "23502": errors.SQLValueIsNull,
+        "23503": errors.SQLForeignKeyError,
+        "23514": errors.SQLCheckError,
+    }.get(code, errors.SQLError)
+    raise exc(f"pgcode={code}")
 
 @redis_monitoring
-def redis_sessions_set(key, value, ex = 3600) -> None:
+async def redis_sessions_set(key, value, ex = 3600) -> None:
     try:
-        redis_sessions.set(key, value, ex = ex)
+        await redis_sessions.set(key, value, ex = ex)
     except redis.DataError:
         raise errors.RedisDataError("Incorrect data")
 
@@ -134,9 +190,9 @@ def redis_sessions_set(key, value, ex = 3600) -> None:
         raise
 
 @redis_monitoring
-def redis_sessions_get(key):
+async def redis_sessions_get(key):
     try:
-        result = redis_sessions.get(key)
+        result = await redis_sessions.get(key)
 
         return result
     
@@ -153,9 +209,9 @@ def redis_sessions_get(key):
         raise
 
 @redis_monitoring
-def redis_sessions_del(key) -> None:
+async def redis_sessions_del(key) -> None:
     try:
-        redis_sessions.delete(key)
+        await redis_sessions.delete(key)
     
     except redis.DataError:
         raise errors.RedisDataError("Incorrect data")
@@ -170,10 +226,18 @@ def redis_sessions_del(key) -> None:
         raise
 
 
-def registration (login: str, password: str, identificator: str, name: str) -> None:
+@sql_monitoring
+async def count_users() -> int:
+    async with connect_users() as conn:
+        result = await conn.execute(text("SELECT COUNT(*) FROM users"))
+        return int(result.scalar() or 0)
+
+
+@sql_monitoring
+async def registration (login: str, password: str, identificator: str, name: str) -> None:
     try:
-        with connect_users.begin() as conn:
-            conn.execute (
+        async with connect_users.begin() as conn:
+            await conn.execute (
                 insert (users),
                 [{
                     "login": login,
@@ -181,9 +245,10 @@ def registration (login: str, password: str, identificator: str, name: str) -> N
                 }],
             )
 
-            id = conn.execute(select (users).where(users.c.login == login)).scalar()
+            result = await conn.execute(select (users).where(users.c.login == login))
+            id = result.scalar()
 
-            conn.execute (
+            await conn.execute (
                 insert (personal),
                 [{
                     "id":id,
@@ -195,78 +260,56 @@ def registration (login: str, password: str, identificator: str, name: str) -> N
         return None
 
     except IntegrityError as error:
-        pgcode = getattr(error.orig, "pgcode", None)
+        _raise_pg(error)
 
-        if pgcode == "23505":
-            raise errors.SQLValueExist("Unique value already exist")
-        
-        elif pgcode == "23502":
-            raise errors.SQLValueIsNull("Request value is null")
-        
-        elif pgcode == "23503":
-            raise errors.SQLForeignKeyError("Foreign key violation")
-        
-        elif pgcode == "23514":
-            raise errors.SQLCheckError("Check constraint violation")
-        
-        else:
-            raise errors.SQLError(pgcode)
-
-def enter (login: str, password: str) -> dict[Enter_request]:
+@sql_monitoring
+async def enter(login: str, password: str) -> dict[Enter_request]:
     try:
-        with connect_users.connect() as conn:
-            info = conn.execute(select(users.c.id, users.c.password).where(users.c.login==login)).fetchall()
+        async with connect_users() as conn:
+            result = await conn.execute(
+                select(users.c.id, users.c.password, personal.c.name)
+                .join(personal, personal.c.id == users.c.id)
+                .where(users.c.login == login)
+            )
+            row = result.fetchone()
 
-            ph.verify(info[0][1], password)
+        if row is None:
+            raise errors.IncorrectEnter("Incorrect login")
 
-            user_id = info[0][0]
+        user_id, password_hash, name = row
+        ph.verify(password_hash, password)
 
-            name = conn.execute(select(personal.c.name).where(personal.c.id==user_id)).scalar()
+        async with connect_chats() as conn:
+            result = await conn.execute(
+                select(chats.c.id, chats.c.name)
+                .where((chats.c.user_1 == user_id) | (chats.c.user_2 == user_id))
+            )
+            chats_data = [[r[0], r[1]] for r in result.fetchall()]
 
-        with connect_chats.connect() as conn:
-            chats_data = conn.execute(select(chats.c.id, chats.c.name).where((chats.c.user_1==user_id) | (chats.c.user_2==user_id))).fetchall()
-
-        return {"id":user_id, "chats_data":chats_data, "user_name":name}
-
-    except IndexError:
-        raise errors.IncorrectEnter("Incorrect login")
+        return {"id": user_id, "chats_data": chats_data, "user_name": name}
 
     except IntegrityError as error:
-        pgcode = getattr(error.orig, "pgcode", None)
-
-        if pgcode == "23505":
-            raise errors.SQLValueExist("Unique value already exist")
-
-        elif pgcode == "23502":
-            raise errors.SQLValueIsNull("Request value is null")
-
-        elif pgcode == "23503":
-            raise errors.SQLForeignKeyError("Foreign key violation")
-
-        elif pgcode == "23514":
-            raise errors.SQLCheckError("Check constraint violation")
-
-        else:
-            raise errors.SQLError(pgcode)
-        
+        _raise_pg(error)
     except VerifyMismatchError:
         raise errors.IncorrectEnter("Password is incorrect")
 
-def new_chat (key: str, name: str, user_link: str) -> None:
+@sql_monitoring
+async def new_chat (key: str, name: str, user_link: str) -> None:
     try:
-        id_1 = int(redis_sessions_get(key))
-        with connect_users.connect() as conn:
-            id_2 = conn.execute(select(personal.c.id).where(personal.c.identificator==user_link)).fetchall()[0][0]
+        id_1 = await redis_sessions_get(key)
+        if id_1 is None:
+            raise errors.IncorrectKey("Session expired")
+        id_1 = int(id_1)
 
-        if id_2 is None:
-            log.log.warning("Link is incorrect")
-            raise errors.IncorrectEnter("Link is incorrect")
+        async with connect_users() as conn:
+            result = await conn.execute(select(personal.c.id).where(personal.c.identificator==user_link))
+            id_2 = result.fetchall()[0][0]
 
         id_2 = int(id_2)
 
-        with connect_chats.begin() as conn:
+        async with connect_chats.begin() as conn:
             if id_1 != id_2:
-                conn.execute(
+                await conn.execute(
                     insert(chats),
                     [{
                         "name":name,
@@ -285,29 +328,16 @@ def new_chat (key: str, name: str, user_link: str) -> None:
         raise errors.IncorrectEnter("Incorrect link")
 
     except IntegrityError as error:
-        pgcode = getattr(error.orig, "pgcode", None)
+        _raise_pg(error)
 
-        if pgcode == "23505":
-            raise errors.SQLValueExist("Unique value already exist")
-
-        elif pgcode == "23502":
-            raise errors.SQLValueIsNull("Request value is null")
-
-        elif pgcode == "23503":
-            raise errors.SQLForeignKeyError("Foreign key violation")
-
-        elif pgcode == "23514":
-            raise errors.SQLCheckError("Check constraint violation")
-
-        else:
-            raise errors.SQLError(pgcode)
-
-def get_chats (key: str) -> list:
+@sql_monitoring
+async def get_chats (key: str) -> list:
     try:
-        user_id = int(redis_sessions_get(key))
+        user_id = int(await redis_sessions_get(key))
 
-        with connect_chats.connect() as conn:
-            chats_data = conn.execute(select(chats.c.id, chats.c.name).where((chats.c.user_1==user_id) | (chats.c.user_2==user_id))).fetchall()
+        async with connect_chats() as conn:
+            result = await conn.execute(select(chats.c.id, chats.c.name).where((chats.c.user_1==user_id) | (chats.c.user_2==user_id)))
+            chats_data = result.fetchall()
 
         return [[row[0], row[1]] for row in chats_data]
 
@@ -315,38 +345,24 @@ def get_chats (key: str) -> list:
         raise errors.IncorrectEnter("Incorrect login")
 
     except IntegrityError as error:
-        pgcode = getattr(error.orig, "pgcode", None)
+        _raise_pg(error)
 
-        if pgcode == "23505":
-            raise errors.SQLValueExist("Unique value already exist")
-
-        elif pgcode == "23502":
-            raise errors.SQLValueIsNull("Request value is null")
-
-        elif pgcode == "23503":
-            raise errors.SQLForeignKeyError("Foreign key violation")
-
-        elif pgcode == "23514":
-            raise errors.SQLCheckError("Check constraint violation")
-
-        else:
-            raise errors.SQLError(pgcode)
-        
-    except VerifyMismatchError:
-        raise errors.IncorrectEnter("Password is incorrect")
-
-def get_messeges (key: str, chat_id: int) -> list:
+@sql_monitoring
+async def get_messeges (key: str, chat_id: int) -> list:
     try:
-        user_id = int(redis_sessions_get(key))
+        user_id = int(await redis_sessions_get(key))
 
-        with connect_chats.connect() as conn:
-            res = conn.execute(select(messeges.c.user_id, messeges.c.date, messeges.c.text).where(messeges.c.chat_id==chat_id).order_by(messeges.c.date)).fetchall()
+        async with connect_chats() as conn:
+            result = await conn.execute(select(messeges.c.user_id, messeges.c.date, messeges.c.text).where(messeges.c.chat_id==chat_id).order_by(messeges.c.date))
+            res = result.fetchall()
 
-            users_id = conn.execute(select(chats.c.user_1, chats.c.user_2).where(chats.c.id==chat_id)).fetchall()[0]
+            result = await conn.execute(select(chats.c.user_1, chats.c.user_2).where(chats.c.id==chat_id))
+            users_id = result.fetchall()[0]
 
-        with connect_users.connect() as conn:
+        async with connect_users() as conn:
             user_2_id = users_id[0] if users_id[0] != user_id else users_id[1]
-            other_name = conn.execute(select(personal.c.name).where(personal.c.id == user_2_id)).scalar() or "Unknown"
+            result = await conn.execute(select(personal.c.name).where(personal.c.id == user_2_id))
+            other_name = result.scalar() or "Unknown"
 
             res = [[("" if row[0]==user_id else other_name), row[1], row[2]] for row in res]
 
@@ -356,60 +372,32 @@ def get_messeges (key: str, chat_id: int) -> list:
         raise errors.IncorrectEnter("Incorrect chat id")
 
     except IntegrityError as error:
-        pgcode = getattr(error.orig, "pgcode", None)
+        _raise_pg(error)
 
-        if pgcode == "23505":
-            raise errors.SQLValueExist("Unique value already exist")
+@sql_monitoring
+async def send_messege(key: str, chat_id: int, text: str):
+    raw = await redis_sessions_get(key)
+    if raw is None:
+        raise errors.IncorrectKey("Session expired")
+    user_id = int(raw)
 
-        elif pgcode == "23502":
-            raise errors.SQLValueIsNull("Request value is null")
+    async with connect_chats.begin() as conn:
+        result = await conn.execute(
+            select(chats.c.user_1, chats.c.user_2).where(chats.c.id == chat_id)
+                )
+        users = result.fetchone()
 
-        elif pgcode == "23503":
-            raise errors.SQLForeignKeyError("Foreign key violation")
+        if users is None:
+            raise errors.ChatError("Chat is not found")
 
-        elif pgcode == "23514":
-            raise errors.SQLCheckError("Check constraint violation")
+    
+        result = await conn.execute(
+            insert(messeges).returning(
+                messeges.c.date, messeges.c.user_id
+            ),
+            [{"user_id": user_id, "chat_id": chat_id, "text": text}],
+        )
 
-        else:
-            raise errors.SQLError(pgcode)
-        
-    except VerifyMismatchError:
-        raise errors.IncorrectEnter("Password is incorrect")
+        row = result.fetchone()
 
-def send_messege (key: str, chat_id: int, text: str) -> None:
-    try:
-        user_id = int(redis_sessions_get(key))
-
-        with connect_chats.begin() as conn:
-            conn.execute(insert(messeges),
-                [{
-                    "user_id":user_id,
-                    "chat_id":chat_id,
-                    "text":text
-                }],
-            )
-
-    except IndexError:
-        raise errors.IncorrectEnter("Incorrect login")
-
-    except IntegrityError as error:
-        pgcode = getattr(error.orig, "pgcode", None)
-
-        if pgcode == "23505":
-            raise errors.SQLValueExist("Unique value already exist")
-
-        elif pgcode == "23502":
-            raise errors.SQLValueIsNull("Request value is null")
-
-        elif pgcode == "23503":
-            raise errors.SQLForeignKeyError("Foreign key violation")
-
-        elif pgcode == "23514":
-            raise errors.SQLCheckError("Check constraint violation")
-
-        else:
-            raise errors.SQLError(pgcode)
-        
-    except VerifyMismatchError:
-        raise errors.IncorrectEnter("Password is incorrect")
-
+    return {"date": row.date.isoformat(), "user_id": row.user_id, "participants": list(users)}
