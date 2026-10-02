@@ -12,9 +12,9 @@ users_online = Gauge (
 )
 
 
-messages_count = Counter (
-    "messages_count",
-    "Total message count"
+messeges_count = Counter (
+    "messeges_count",
+    "Total messege count"
 )
 
 

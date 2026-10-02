@@ -1,8 +1,24 @@
+# web
+fastapi[standard]
+uvicorn[standard]
+gunicorn
+pydantic
+
+# db
+sqlalchemy[asyncio]
+asyncpg
 psycopg2-binary
+
+# cache
 redis
+
+# auth
+argon2-cffi
+
+# metrics
 prometheus-client
 
+# tests
 pytest
-
-flask
-flask-cors
+pytest-asyncio
+httpx
