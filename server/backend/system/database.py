@@ -384,7 +384,7 @@ async def send_messege(key: str, chat_id: int, text: str):
     async with connect_chats.begin() as conn:
         result = await conn.execute(
             select(chats.c.user_1, chats.c.user_2).where(chats.c.id == chat_id)
-                )
+        )
         users = result.fetchone()
 
         if users is None:
@@ -400,4 +400,15 @@ async def send_messege(key: str, chat_id: int, text: str):
 
         row = result.fetchone()
 
-    return {"date": row.date.isoformat(), "user_id": row.user_id, "participants": list(users)}
+    if user_id == row.user_id:
+        user_name = ''
+
+    else:
+        async with connect_users() as conn:
+            result = await conn.execute(
+                select(personal.c.name).where(personal.c.id==row["user_id"])
+            )
+
+            user_name = result.fetchone()
+
+    return {"date": row.date.isoformat(), "user_name": user_name, "participants": list(users)}

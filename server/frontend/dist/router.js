@@ -202,12 +202,12 @@ function connectWS() {
     const msg = JSON.parse(e.data);
     if (msg.type !== 'message') return;
     if (String(msg.chat_id) === String(cur_chat_id)) {
-      appendMessage('', msg.date, msg.text);
+      appendMessage(msg.sender_name, msg.date, msg.text);
     }
   };
 
   ws.onclose = (e) => {
-    if (e.code === 1008) return;               // не авторизован — не долбим
+    if (e.code === 1008) return;
     setTimeout(connectWS, 1000 + Math.random() * 500);
   };
 }

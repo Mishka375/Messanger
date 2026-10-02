@@ -206,7 +206,7 @@ async def send_msg(body: Send_messege, session_key: str = Cookie(...)):
                 await push(sess, {
                                 "type": "message",
                                 "chat_id": body.chat_id,
-                                "sender_id": msg["user_id"],
+                                "sender_name": msg["user_name"],
                                 "date": msg["date"],
                                 "text": body.text,
                                 })
