@@ -155,7 +155,7 @@ async function initMesseges() {
     const btn = document.createElement('button');
     btn.textContent = chatName;
     btn.dataset.chatID = chatId
-  
+
     btn.addEventListener('click', () => {
       cur_chat_id = btn.dataset.chatID;
       loadMesseges(btn.dataset.chatID);

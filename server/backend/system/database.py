@@ -195,7 +195,7 @@ async def redis_sessions_get(key):
         result = await redis_sessions.get(key)
 
         return result
-    
+
     except redis.DataError:
         raise errors.RedisDataError("Incorrect data")
 
@@ -212,7 +212,7 @@ async def redis_sessions_get(key):
 async def redis_sessions_del(key) -> None:
     try:
         await redis_sessions.delete(key)
-    
+
     except redis.DataError:
         raise errors.RedisDataError("Incorrect data")
 
@@ -390,25 +390,22 @@ async def send_messege(key: str, chat_id: int, text: str):
         if users is None:
             raise errors.ChatError("Chat is not found")
 
-    
+
         result = await conn.execute(
             insert(messeges).returning(
-                messeges.c.date, messeges.c.user_id
+                messeges.c.date
             ),
             [{"user_id": user_id, "chat_id": chat_id, "text": text}],
         )
 
         row = result.fetchone()
 
-    if user_id == row.user_id:
-        user_name = ''
-
-    else:
         async with connect_users() as conn:
             result = await conn.execute(
-                select(personal.c.name).where(personal.c.id==row["user_id"])
+                select(personal.c.name).where(personal.c.id==user_id)
             )
 
             user_name = result.fetchone()
+            user_name = user_name[0] if user_name else ''
 
     return {"date": row.date.isoformat(), "user_name": user_name, "participants": list(users)}
