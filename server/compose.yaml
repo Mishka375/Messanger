@@ -4,9 +4,8 @@ services:
             context: ./backend/system
             dockerfile: Dockerfile
         container_name: backend
-        ports:
-            - 8000:8000
-            - 5000:5000
+        expose:
+            - "5000"
         environment:
             DATABASE_HOST_USERS: users-db
             DATABASE_NAME_USERS: users
