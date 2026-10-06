@@ -1,12 +1,17 @@
+/* Styles */
 :root {
-    --main-background-color: #CCA65A;
-    --sub-background-color: #A07B31;
-    --dark-background-color: #5A451C;
-    --main-background-gradient: linear-gradient(170deg, #CCA65A, #5A451C);
+    --main-background-color: #DEB887;
+    --sub-background-color: #A78457;
+    --dark-background-color: #564126;
+    --main-background-gradient: linear-gradient(170deg, #DEB887, #564126);
 
-    --main-border-color: #EEE2C8;
+    --main-border-color: #CCB598;
+
+    --main-text-color-light: #E5B475;
+    --main-text-color-dark: #2F1D07;
 }
 
+/* Setting */
 html {
     height: 100%;
 }
@@ -29,24 +34,163 @@ body {
     box-sizing: border-box;
 }
 
-.main_menu {
+/* Hight panel */
+.hight-menu {
+    user-select: none;
+
     grid-area: top;
+    display: flex;
 
     min-height: 50px;
     max-height: 60px;
 
     border-radius: 0px 0px 30px 0px;
-
     border-bottom: 1px solid var(--main-border-color);
 
     background-color: var(--sub-background-color);
 }
 
-.main_menu button {
+.hight-menu-setting {
+    margin: auto 10px;
+}
+
+.hight-menu-setting button {
     color: var(--main-background-color);
     background-color: var(--dark-background-color);
+
     border-radius: 10px;
     border: 1px solid var(--main-border-color);
-    height: 30px;
+
+    height: 35px;
     width: 50px;
 }
+
+.hight-menu-account {
+    display: flex;
+    align-items: center;
+
+    color: var(--main-background-color);
+    background-color: var(--dark-background-color);
+
+    border-radius: 100px;
+    border: 1px solid var(--main-border-color);
+
+    margin: 10px 20px;
+    margin-left: auto;
+
+    height: 35px;
+    min-width: 120px;
+    max-width: 300px;
+}
+
+.hight-menu-account h3 {
+    padding-right: 2px;
+    padding-left: 7px;
+}
+
+.hight-menu-account button { 
+    color: var(--main-background-color);
+    background-color: var(--dark-background-color);
+
+    border-radius: 100px;
+    border: 1px solid var(--main-border-color);
+
+    margin-left: auto;
+
+    height: 35px;
+    width: 35px;
+}
+
+
+/* Registry panel */
+.registry-window {
+    user-select: none;
+
+    display: grid;
+    grid-template-areas:
+    "head head"
+    "name link"
+    "login login"
+    "password password"
+    "button button";
+    gap: 5px;
+
+    background-color: var(--dark-background-color);
+
+    grid-area: content;
+
+    margin: auto;
+
+    border-radius: 10px;
+    border: 1px solid var(--main-border-color);
+
+    min-height: 100px;
+    min-width: 200px;
+
+    height: 300px;
+    width: 500px;
+
+    max-height: 98%;
+    max-width: 98%;
+
+    padding: 10px;
+}
+
+.registry-window h1 {
+    grid-area: head;
+
+    color: var(--main-text-color-light);
+
+    margin: 10px auto;
+}
+
+.registry-window input {
+    color: var(--main-text-color-dark);
+    background: var(--main-background-gradient);
+
+    border-radius: 5px;
+    border: 1px solid var(--main-border-color);
+
+    min-height: 30px;
+    max-height: 35px;
+
+    margin: 3px;
+}
+
+.registry-window input::selection {
+    color: var(--main-text-color-light);
+    background-color: var(--dark-background-color);
+}
+
+.registry-window input:focus {
+    outline: none;
+    border-color: var(--dark-background-color);
+}
+
+.registry-window input[type="name"] {
+    grid-area: name;
+}
+
+.registry-window input[type="link"] {
+    grid-area: link;
+}
+
+.registry-window input[type="login"] {
+    grid-area: login;
+}
+
+.registry-window button {
+    font-size: 20px;
+
+    grid-area: button;
+    color: var(--main-background-color);
+    background-color: var(--dark-background-color);
+
+    border-radius: 10px;
+    border: 1px solid var(--main-border-color);
+
+    height: auto;
+    width: auto;
+}
+
+
