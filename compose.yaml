@@ -1,13 +1,13 @@
 services:
     backend:
         build:
-            context: ./backend/system
+            context: ./app/backend
             dockerfile: Dockerfile
         container_name: backend
-        expose:
-            - "5000"
+
         volumes:
           - logs:/app/logs
+
         environment:
             DATABASE_HOST_USERS: users-db
             DATABASE_NAME_USERS: users
@@ -21,14 +21,7 @@ services:
 
             REDIS_HOST_SESSIONS: redis-sessions
             REDIS_PORT_SESSIONS: 6379
-        depends_on:
-            users_db:
-                condition: service_healthy
-            chats_db:
-                condition: service_healthy
-        networks:
-            - local
-        restart: unless-stopped
+
         healthcheck:
             test: ["CMD", "python", "-c",
                    "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3).status == 200 else 1)"]
@@ -36,134 +29,181 @@ services:
             timeout: 5s
             retries: 5
 
+        restart: unless-stopped
+
+        depends_on:
+            users_db:
+                condition: service_healthy
+            chats_db:
+                condition: service_healthy
+
+        networks:
+            - local
+        
+        expose:
+            - "5000"
+
     frontend:
         build:
-            context: ./frontend
+            context: ./app/frontend
         container_name: frontend
-        ports:
-            - "8080:80"
-            - "8443:443"
+
         volumes:
-            - ./certbot/conf:/etc/letsencrypt:ro
+            - ./TLS/certbot/conf:/etc/letsencrypt:ro
+
+        restart: unless-stopped
+
         depends_on:
             backend:
                 condition: service_healthy
+
         networks:
             - local
-        restart: unless-stopped
+
+        ports:
+            - "8080:80"
+            - "8443:443"
 
     users_db:
         image: postgres:18-alpine
         container_name: users-db
+
         volumes:
             - users-data:/var/lib/postgresql
-            - ./backend/database/users/db_init:/docker-entrypoint-initdb.d
+            - ./database/users/db_init:/docker-entrypoint-initdb.d
+
         environment:
             POSTGRES_DB: users
             POSTGRES_USER: postgres
             POSTGRES_PASSWORD: password
+
         healthcheck:
             test: ["CMD-SHELL", "pg_isready -U postgres -d users"]
             interval: 10s
             timeout: 5s
             retries: 5
+
+        restart: unless-stopped
+
         networks:
             - local
-        restart: unless-stopped
 
     chats_db:
         image: postgres:18-alpine
         container_name: chats-db
+
         volumes:
             - chats-data:/var/lib/postgresql
-            - ./backend/database/chats/db_init:/docker-entrypoint-initdb.d
+            - ./database/chats/db_init:/docker-entrypoint-initdb.d
+
         environment:
             POSTGRES_DB: chats
             POSTGRES_USER: postgres
             POSTGRES_PASSWORD: password
+
         healthcheck:
             test: ["CMD-SHELL", "pg_isready -U postgres -d chats"]
             interval: 10s
             timeout: 5s
             retries: 5
-        networks:
-            - local
+
         restart: unless-stopped
 
+        networks:
+            - local
 
     redis_sessions:
         image: redis:8-alpine
         container_name: redis-sessions
-        networks:
-            - local
+
         restart: unless-stopped
 
-
+        networks:
+            - local
 
     prometheus:
         image: prom/prometheus
         container_name: prometheus
+
         volumes:
-            - ./backend/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-        ports:
-            - "9091:9090"
+            - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+
         healthcheck:
             test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/ready"]
             interval: 10s
             timeout: 5s
             retries: 5
+        
+        restart: unless-stopped
+
         networks:
             - local
-        restart: unless-stopped
+        
+        ports:
+            - "9091:9090"
 
     loki:
         image: grafana/loki:3.2.0
         container_name: loki
+
         command: -config.file=/etc/loki/local-config.yaml
+        
         volumes:
-            - ./loki-config.yml:/etc/loki/local-config.yaml
+            - ./conf/loki-config.yml:/etc/loki/local-config.yaml
             - loki-data:/loki
-        ports:
-            - "3100:3100"
+        
         networks:
             - local
+        
+        ports:
+            - "3100:3100"
 
     promtail:
         image: grafana/promtail:3.2.0
         container_name: promtail
+
+        command: -config.file=/etc/promtail/config.yml
+
         volumes:
             - logs:/var/log/backend:ro
-            - ./promtail-config.yml:/etc/promtail/config.yml
+            - ./conf/promtail-config.yml:/etc/promtail/config.yml
             - /var/run/docker.sock:/var/run/docker.sock:ro
-        command: -config.file=/etc/promtail/config.yml
+
         depends_on:
             - loki
+
         networks:
             - local
 
     grafana:
         image: grafana/grafana:latest
         container_name: grafana
-        ports:
-        - "3000:3000"
+
         volumes:
-        - ./backend/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-        - ./backend/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
-        - grafana-data:/var/lib/grafana
+            - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+            - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+            - grafana-data:/var/lib/grafana
+
         environment:
-        - GF_SECURITY_ADMIN_USER=admin
-        - GF_SECURITY_ADMIN_PASSWORD=admin
+            - GF_SECURITY_ADMIN_USER=admin
+            - GF_SECURITY_ADMIN_PASSWORD=admin
+        
+        restart: unless-stopped
+
+        depends_on:
+            - prometheus
+            - loki
+
         networks:
             - local
-        restart: unless-stopped
-        depends_on:
-        - prometheus
-        - loki
+        ports:
+        - "3000:3000"
 
 volumes:
-    logs:
     users-data:
     chats-data:
+
+    logs:
     loki-data:
     grafana-data:
 
