@@ -1,8 +1,20 @@
-html, body {
+:root {
+    --main-background-color: #CCA65A;
+    --sub-background-color: #A07B31;
+    --dark-background-color: #5A451C;
+    --main-background-gradient: linear-gradient(170deg, #CCA65A, #5A451C);
+
+    --main-border-color: #EEE2C8;
+}
+
+html {
     height: 100%;
+}
+
+body {
     width: 100%;
     margin: 0;
-    background-color: #000000;
+    background: var(--main-background-gradient);
     font-family: Arial, sans-serif;
     display: grid;
     grid-template-rows: auto 1fr;
@@ -19,16 +31,22 @@ html, body {
 
 .main_menu {
     grid-area: top;
-    min-height: 100px;
-    border-radius: 10px;
-    border-bottom: 10px;
-    border-color: #FFFFFF;
-    background-color: #FF0000;
+
+    min-height: 50px;
+    max-height: 60px;
+
+    border-radius: 0px 0px 30px 0px;
+
+    border-bottom: 1px solid var(--main-border-color);
+
+    background-color: var(--sub-background-color);
 }
 
 .main_menu button {
-    color: #00FF00;
-    background-color: #0000FF;
-    max-height: 100;
-    max-width: 100;
+    color: var(--main-background-color);
+    background-color: var(--dark-background-color);
+    border-radius: 10px;
+    border: 1px solid var(--main-border-color);
+    height: 30px;
+    width: 50px;
 }
