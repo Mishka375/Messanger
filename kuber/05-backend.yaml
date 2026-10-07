@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: docker.io/library/messenger-backend
+        image: docker-registry.artifactory.svc.cluster.local/messenger-backend
         imagePullPolicy: Never
         ports:
         - containerPort: 5000
