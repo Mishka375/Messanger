@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: docker-registry.artifactory.svc.cluster.local/messenger-backend
+        image: http://docker-registry.artifactory.svc.cluster.local/messenger-backend
         ports:
         - containerPort: 5000
         - containerPort: 8000
