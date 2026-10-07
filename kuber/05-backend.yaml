@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: docker.io/library/backend:1.0.0
+        image: docker.io/library/messenger-backend
         imagePullPolicy: Never
         ports:
         - containerPort: 5000
