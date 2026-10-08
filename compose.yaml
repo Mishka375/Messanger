@@ -39,7 +39,7 @@ services:
 
         networks:
             - local
-        
+
         expose:
             - "5000"
 
@@ -133,12 +133,12 @@ services:
             interval: 10s
             timeout: 5s
             retries: 5
-        
+
         restart: unless-stopped
 
         networks:
             - local
-        
+
         ports:
             - "9091:9090"
 
@@ -147,14 +147,14 @@ services:
         container_name: loki
 
         command: -config.file=/etc/loki/local-config.yaml
-        
+
         volumes:
-            - ./conf/loki-config.yml:/etc/loki/local-config.yaml
+            - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml
             - loki-data:/loki
-        
+
         networks:
             - local
-        
+
         ports:
             - "3100:3100"
 
@@ -166,7 +166,7 @@ services:
 
         volumes:
             - logs:/var/log/backend:ro
-            - ./conf/promtail-config.yml:/etc/promtail/config.yml
+            - ./monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml
             - /var/run/docker.sock:/var/run/docker.sock:ro
 
         depends_on:
@@ -187,7 +187,7 @@ services:
         environment:
             - GF_SECURITY_ADMIN_USER=admin
             - GF_SECURITY_ADMIN_PASSWORD=admin
-        
+
         restart: unless-stopped
 
         depends_on:
