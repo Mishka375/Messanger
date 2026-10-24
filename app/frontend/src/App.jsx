@@ -28,12 +28,12 @@ function navigate(page) {
 
 function useHashRoute() {
   const [route, setRoute] = useState(
-    () => location.hash.slice(1) || 'home_unreg.html'
+    () => location.hash.slice(1) || 'enter.html'
   );
 
   useEffect(() => {
     const onHash = () =>
-      setRoute(location.hash.slice(1) || 'home_unreg.html');
+      setRoute(location.hash.slice(1) || 'enter.html');
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -43,42 +43,19 @@ function useHashRoute() {
 
 /* ---------------- layout ---------------- */
 
-function HighPanel({ children }) {
+function HighMenu() {
   return (
-    <div className="hight_panel_card">
-      <button className="menu_button_card">Menu</button>
-      {children}
-    </div>
+    <header className="hight-menu">
+      <button type="menu">...</button>
+      <div type="account">
+        <h3>Account</h3>
+        <button type="account"></button>
+      </div>
+    </header>
   );
 }
 
 /* ---------------- pages ---------------- */
-
-function HomeUnreg() {
-  return (
-    <>
-      <HighPanel />
-      <div className="enter_card">
-        <h1 className="title_card">Home</h1>
-        <div>
-          <button
-            className="enter_button_card"
-            onClick={() => navigate('enter.html')}
-          >
-            Enter
-          </button>
-          <button
-            className="enter_button_card"
-            onClick={() => navigate('registry.html')}
-          >
-            Registry
-          </button>
-        </div>
-      </div>
-      <p id="reg_error" />
-    </>
-  );
-}
 
 function Enter() {
   const [login, setLogin] = useState('');
@@ -104,42 +81,37 @@ function Enter() {
       return;
     }
 
-    navigate('messeges.html');
+    navigate('main.html');
   };
 
   return (
     <>
-      <HighPanel />
-      <div className="enter_card">
-        <h1 className="title_card">Enter</h1>
-        <div>
-          <input
-            className="input_login_card"
-            type="text"
-            placeholder="Login"
-            value={login}
-            onChange={(e) => setLogin(e.target.value)}
-          />
-          <input
-            className="input_login_card"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-          />
-          <button className="enter_button_card" onClick={handleSubmit}>
-            Continue
-          </button>
-        </div>
+      <HighMenu />
+      <div className="enter-window">
+        <h1>Enter</h1>
+        <input
+          type="login"
+          placeholder="Login"
+          value={login}
+          onChange={(e) => setLogin(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+        />
+        <h6>{out}</h6>
+        <button onClick={handleSubmit}>Continue</button>
       </div>
-      <p id="out">{out}</p>
     </>
   );
 }
 
 function Registry() {
   const [name, setName] = useState('');
+  const [link, setLink] = useState('');
   const [login, setLogin] = useState('');
   const [p1, setP1] = useState('');
   const [p2, setP2] = useState('');
@@ -176,44 +148,42 @@ function Registry() {
 
   return (
     <>
-      <HighPanel />
-      <div className="registry_card">
-        <h1 className="title_card">Registry</h1>
-        <div>
-          <input
-            className="input_login_card"
-            type="text"
-            placeholder="User name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            className="input_login_card"
-            type="text"
-            placeholder="Login"
-            value={login}
-            onChange={(e) => setLogin(e.target.value)}
-          />
-          <input
-            className="input_login_card"
-            type="password"
-            placeholder="Password"
-            value={p1}
-            onChange={(e) => setP1(e.target.value)}
-          />
-          <input
-            className="input_login_card"
-            type="password"
-            placeholder="Confirm password"
-            value={p2}
-            onChange={(e) => setP2(e.target.value)}
-          />
-          <button className="enter_button_card" onClick={handleSubmit}>
-            Continue
-          </button>
-        </div>
+      <HighMenu />
+      <div className="registry-window">
+        <h1>Registry</h1>
+        <input
+          type="name"
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <input
+          type="link"
+          placeholder="@your_link"
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
+        />
+        <input
+          type="login"
+          placeholder="Login"
+          value={login}
+          onChange={(e) => setLogin(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={p1}
+          onChange={(e) => setP1(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Confim password"
+          value={p2}
+          onChange={(e) => setP2(e.target.value)}
+        />
+        <h6>{out}</h6>
+        <button onClick={handleSubmit}>Continue</button>
       </div>
-      <p id="out">{out}</p>
     </>
   );
 }
@@ -243,40 +213,34 @@ function CreateChat() {
       return;
     }
 
-    navigate('messeges.html');
+    navigate('main.html');
   };
 
   return (
     <>
-      <HighPanel />
-      <div className="enter_card">
-        <h1 className="title_card">Create new chat</h1>
-        <div>
-          <input
-            className="input_login_card"
-            type="text"
-            placeholder="Chat name"
-            value={chatName}
-            onChange={(e) => setChatName(e.target.value)}
-          />
-          <input
-            className="input_login_card"
-            type="text"
-            placeholder="User link"
-            value={userLink}
-            onChange={(e) => setUserLink(e.target.value)}
-          />
-          <button className="enter_button_card" onClick={handleCreate}>
-            Create
-          </button>
-        </div>
+      <HighMenu />
+      <div className="enter-window">
+        <h1>Create new chat</h1>
+        <input
+          type="text"
+          placeholder="Chat name"
+          value={chatName}
+          onChange={(e) => setChatName(e.target.value)}
+        />
+        <input
+          type="text"
+          placeholder="@user_link"
+          value={userLink}
+          onChange={(e) => setUserLink(e.target.value)}
+        />
+        <h6>{out}</h6>
+        <button onClick={handleCreate}>Create</button>
       </div>
-      <p id="out">{out}</p>
     </>
   );
 }
 
-function Messeges() {
+function Main() {
   const [chats, setChats] = useState([]);
   const [curChatId, setCurChatId] = useState(0);
   const [messages, setMessages] = useState([]);
@@ -395,7 +359,7 @@ function Messeges() {
   /* ---- отправка ---- */
   const handleSend = async () => {
     const t = text;
-    if (!t.trim()) return;
+    if (!t.trim() || !curChatId) return;
 
     setText('');
     try {
@@ -417,41 +381,45 @@ function Messeges() {
     }
   };
 
+  const currentChatName =
+    chats.find((c) => c.id === String(curChatId))?.name || 'Chat name';
+
   return (
     <>
-      <div className="chats_menu">
-        <header className="hight_panel_card">
-          <button className="menu_button_card">Menu</button>
-          <button
-            className="create_chat_button_card"
-            onClick={() => navigate('create_chat.html')}
-          >
-            Create chat
-          </button>
-        </header>
-
-        <aside className="chats_list">
-          {chats.map((c) => (
-            <button key={c.id} onClick={() => handleSelectChat(c.id)}>
-              {c.name}
+      <HighMenu />
+      <div className="main-slide">
+        <div className="chat-space">
+          <h1>Chats</h1>
+          <div>
+            {chats.map((c) => (
+              <button
+                key={c.id}
+                className={String(curChatId) === c.id ? 'active' : ''}
+                onClick={() => handleSelectChat(c.id)}
+              >
+                {c.name}
+              </button>
+            ))}
+            <button onClick={() => navigate('create_chat.html')}>
+              + Create chat
             </button>
-          ))}
-        </aside>
+          </div>
+        </div>
 
-        <main className="chat_area">
-          <div className="message_slide">
+        <div className="message-space">
+          <h1>{currentChatName}</h1>
+          <div className="message-list">
             {messages.map((m, i) => (
-              <article className="message" key={i}>
-                <header className="message-meta">
-                  {m.sender} · {formatDate(m.date)}
-                </header>
-                <div className="message-text">{m.text}</div>
-              </article>
+              <div key={i}>
+                <h4>{m.text}</h4>
+                <h6>
+                  {m.sender} {formatDate(m.date)}
+                </h6>
+              </div>
             ))}
             <div ref={messagesEndRef} />
           </div>
-
-          <div className="text_input">
+          <div className="send">
             <input
               type="text"
               value={text}
@@ -460,9 +428,8 @@ function Messeges() {
             />
             <button onClick={handleSend}>Send</button>
           </div>
-        </main>
+        </div>
       </div>
-      <p id="out" />
     </>
   );
 }
@@ -477,13 +444,14 @@ function App() {
       return <Enter />;
     case 'registry.html':
       return <Registry />;
+    case 'main.html':
     case 'messeges.html':
-      return <Messeges />;
+      return <Main />;
     case 'create_chat.html':
       return <CreateChat />;
     case 'home_unreg.html':
     default:
-      return <HomeUnreg />;
+      return <Enter />;
   }
 }
 

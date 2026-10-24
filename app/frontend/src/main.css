@@ -1,19 +1,34 @@
+/* Styles */
 :root {
-  --main-background-color: #00021a;
-  --main-text-color: #ddfff5;
-  --main-gradient-color: linear-gradient(90deg, #040f88, #00020f);
-  --main-text-shadow-color: 0px 0px 2px #657bfa;
-  --main-border-color: 2px solid #7060ff;
+    --main-background-color: #DEB887;
+    --sub-background-color: #A78457;
+    --dark-background-color: #564126;
+    --main-background-gradient: linear-gradient(170deg, #DEB887, #564126);
+
+    --main-border-color: #CCB598;
+
+    --main-text-color-light: #E5B475;
+    --main-text-color-dark: #2F1D07;
 }
 
 
-
-html, body {
+/* Setting */
+html {
     height: 100%;
+}
+
+body {
     width: 100%;
     margin: 0;
-    background-color: var(--main-background-color);
+    background: var(--main-background-gradient);
     font-family: Arial, sans-serif;
+    display: grid;
+    grid-template-rows: auto 1fr;
+
+    grid-template-areas:
+        "top"
+        "content";
+    gap: 10px;
 }
 
 *, *::before, *::after {
@@ -21,355 +36,304 @@ html, body {
 }
 
 
-.chats_menu {
-    display: grid;
-    grid-template-columns: 200px 1fr;        /* сайдбар + чат */
-    grid-template-rows: auto 1fr;            /* шапка + остальное */
-    grid-template-areas:
-        "top  top"                           /* шапка на всю ширину */
-        "list chat";                         /* под ней две колонки */
-    gap: 10px;
-
-    width: 100%;
-    height: 100vh;
-    padding: 10px;
-
-    background: var(--main-gradient-color);
-    color: var(--main-text-color);
-    text-shadow: var(--main-text-shadow-color);
-
-    border: var(--main-border-color);
-    border-radius: 10px;
-
-    overflow: hidden;
-    user-select: none;
-}
-
-.chats_list {
-    grid-area: list;
-    min-height: 0;
-
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 8px;
-
-    background: var(--main-background-color);
-    border-right: var(--main-border-color);
-    border-radius: 8px;
-
-
-    overflow-y: auto;
-    overflow-x: hidden;
-
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-.chats_list::-webkit-scrollbar {
-    display: none;
-}
-
-.chats_list button {
-    flex: 0 0 auto;
-    white-space: nowrap;
-    padding: 8px 10px; 
-
-    font-family: inherit;
-    font-size: 14px;
-    color: var(--main-text-color);
-    text-shadow: 0 0 2px #657bfa;
-
-    background: var(--main-gradient-color);
-    border: var(--main-border-color);
-    border-radius: 10px;
-    cursor: pointer;
-    transition: background 0.15s, box-shadow 0.15s, transform 0.05s;
-}
-
-.chat_area {
-    grid-area: chat;
-    min-width: 0;
-    min-height: 0;
-
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    overflow: hidden;
-}
-
-.message_slide {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 16px;
-
-    background: var(--main-background-color);
-    border: var(--main-border-color);
-    border-radius: 10px;
-    color: var(--main-text-color);
-}
-
-.text_input {
-    margin-top: auto;
-    flex: 0 0 auto;
-    display: flex;
-    gap: 8px;
-
-    padding: 8px;
-    background: var(--main-gradient-color);
-    border: var(--main-border-color);
-    border-radius: 10px;
-}
-
-.text_input input {
-    flex: 1;
-    padding: 8px 10px;
-    background: var(--main-background-color);
-    color: var(--main-text-color);
-    border: var(--main-border-color);
-    border-radius: 6px;
-    outline: none;
-    font-family: inherit;
-}
-
-.text_input button {
-    padding: 8px 16px;
-    font-family: inherit;
-    color: var(--main-text-color);
-    text-shadow: var(--main-text-shadow-color);
-    background: var(--main-gradient-color);
-    border: var(--main-border-color);
-    border-radius: 6px;
-    cursor: pointer;
-}
-.text_input button:hover {
-    box-shadow: 0 0 8px rgba(112, 96, 255, 0.6);
-}
-
-
-
-.title_card {
-    margin: 1px auto;
-
-    color: var(--main-text-color);
-    text-shadow: var(--main-text-shadow-color);
-}
-
-.registry_card {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-
-    margin: 150px auto;
-
-    font-family: Arial, sans-serif;
-    -webkit-user-select: none;
+/* Hight panel */
+.hight-menu {
     user-select: none;
 
-    width: 600px;
-    height: 350px;
-
-    padding: 10px;
-
-    background: var(--main-gradient-color);
-
-    color: var(--main-text-color);
-    text-shadow: var(--main-text-shadow-color);
-
-    border: var(--main-border-color);
-    border-radius: 10px;
-}
-
-.enter_card {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-
-    margin: 150px auto;
-
-    font-family: Arial, sans-serif;
-    -webkit-user-select: none;
-    user-select: none;
-
-    width: 600px;
-    height: 225px;
-
-    padding: 10px;
-
-    background: var(--main-gradient-color);
-
-    color: var(--main-text-color);
-    text-shadow: var(--main-text-shadow-color);
-
-    border: var(--main-border-color);
-    border-radius: 10px;
-}
-
-
-.hight_panel_card{
     grid-area: top;
+    display: flex;
 
+    min-height: 50px;
+    max-height: 60px;
+    height: 55px;
+
+    border-radius: 0px 0px 30px 0px;
+    border-bottom: 1px solid var(--main-border-color);
+
+    background-color: var(--sub-background-color);
+}
+
+.hight-menu-setting {
+    margin: auto 10px;
+}
+
+.hight-menu button{
+    color: var(--main-background-color);
+    background-color: var(--dark-background-color);
+
+    border: 1px solid var(--main-border-color);
+
+    height: 35px;
+}
+
+.hight-menu button[type="menu"] {
+    margin: auto 10px;
+
+    border-radius: 10px;
+
+    width: 50px;
+}
+
+.hight-menu button[type="account"] {
+    border-radius: 100px;
+
+    margin-left: auto;
+
+    width: 35px;
+}
+
+
+.hight-menu div[type="account"] {
     display: flex;
     align-items: center;
-    gap: 10px;
+
+    color: var(--main-background-color);
+    background-color: var(--dark-background-color);
+
+    border-radius: 100px;
+    border: 1px solid var(--main-border-color);
+
+    margin: 10px 20px;
+    margin-left: auto;
+
+    height: 35px;
+    min-width: 120px;
+    max-width: 300px;
+}
+
+.hight-menu h3 {
+    padding-right: 2px;
+    padding-left: 7px;
+}
+
+/* Registry panel */
+.registry-window {
+    grid-area: content;
+
+    user-select: none;
+
+    display: grid;
+
+    grid-template-areas:
+    "head head"
+    "name link"
+    "login login"
+    "password password"
+    "error error"
+    "button button";
+
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 2fr 1.3fr 1fr 1fr 0.5fr 1fr;
+    gap: 5px;
+
+    background-color: var(--dark-background-color);
+
+    margin: auto;
+
+    border-radius: 10px;
+    border: 1px solid var(--main-border-color);
+
+    min-height: 100px;
+    min-width: 200px;
+    max-height: 98%;
+    max-width: 98%;
+
+    height: 300px;
+    width: 500px;
 
     padding: 10px;
-
-    background: var(--main-gradient-color);
-    border: var(--main-border-color);
-    border-radius: 10px;
 }
 
-.input_login_card {
-    display: block;
-    margin-bottom: 10px;
+.registry-window h6 {
+    user-select: text;
 
-    margin: 1% auto;
+    grid-area: error;
 
-    width: 75%;
-    height: 25px;
+    color: var(--main-text-color-light);
+
+    border: 3px solid var(--main-border-color);
+    border-radius: 10px;
+
+    padding: 5px;
+
+    margin: auto;
+}
+
+.registry-window h6::selection {
+    color: var(--main-text-color-dark);
+    background-color: var(--main-background-color);
+}
+
+.registry-window h1 {
+    grid-area: head;
+
+    color: var(--main-text-color-light);
+
+    margin: 10px auto;
+}
+
+.registry-window input {
+    color: var(--main-text-color-dark);
+    background: var(--main-background-gradient);
+
+    border-radius: 5px;
+    border: 1px solid var(--main-border-color);
+
+    min-height: 30px;
+    max-height: 35px;
+
+    margin: 3px;
+}
+
+.registry-window input::selection {
+    color: var(--main-text-color-light);
+    background-color: var(--dark-background-color);
+}
+
+.registry-window input:focus {
+    outline: none;
+    border-color: var(--dark-background-color);
+}
+
+.registry-window input[type="name"] {
+    grid-area: name;
+}
+
+.registry-window input[type="link"] {
+    min-height: 25px;
+    max-height: 30px;
+
+    width: 95%;
+
+    margin: auto;
+
+    grid-area: link;
+}
+
+.registry-window input[type="login"] {
+    grid-area: login;
+}
+
+.registry-window button {
+    font-size: 20px;
+
+    grid-area: button;
+    color: var(--main-background-color);
+    background-color: var(--dark-background-color);
+
+    border-radius: 10px;
+    border: 1px solid var(--main-border-color);
+
+    height: auto;
+    width: auto;
+}
+
+
+/* Enter panel */
+.enter-window {
+    grid-area: content;
+
+    user-select: none;
+
+    display: grid;
+
+    grid-template-areas:
+    "head"
+    "login"
+    "password"
+    "error"
+    "button";
+
+    grid-template-columns: 1fr;
+    grid-template-rows: 2fr 1fr 1fr 0.5fr 1fr;
+    gap: 5px;
+
+    background-color: var(--dark-background-color);
+
+    margin: auto;
+
+    border-radius: 10px;
+    border: 1px solid var(--main-border-color);
+
+    min-height: 100px;
+    min-width: 200px;
+    max-height: 98%;
+    max-width: 98%;
+
+    height: 300px;
+    width: 500px;
 
     padding: 10px;
+}
 
-    background: var(--main-background-color);
+.enter-window h1 {
+    grid-area: head;
 
-    color: var(--main-text-color);
-    text-shadow: var(--main-text-shadow-color);
+    color: var(--main-text-color-light);
 
-    border: var(--main-border-color);
+    margin: 10px auto;
+}
+
+.enter-window h6 {
+    user-select: text;
+
+    grid-area: error;
+
+    color: var(--main-text-color-light);
+
+    border: 3px solid var(--main-border-color);
     border-radius: 10px;
+
+    padding: 5px;
+
+    margin: auto;
 }
 
-input:focus {
-    outline: 2px solid #ccd4ff;    
+.enter-window h6::selection {
+    color: var(--main-text-color-dark);
+    background-color: var(--main-background-color);
 }
 
-.create_chat_button_card{
-    padding: 8px 14px;
+.enter-window input {
+    color: var(--main-text-color-dark);
+    background: var(--main-background-gradient);
 
-    font-family: inherit;
-    font-size: 14px;
-    color: var(--main-text-color);
-    text-shadow: var(--main-text-shadow-color);
+    border-radius: 5px;
+    border: 1px solid var(--main-border-color);
 
-    background: var(--main-gradient-color);
-    border: var(--main-border-color);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: box-shadow 0.15s, transform 0.05s;
+    min-height: 30px;
+    max-height: 35px;
+
+    margin: 3px;
 }
 
-.create_chat_button_card:hover {
-    color: #657bfa;
-    box-shadow: 0 0 10px #3a46c9;
+.enter-window input::selection {
+    color: var(--main-text-color-light);
+    background-color: var(--dark-background-color);
 }
 
-.create_chat_button_card:active {
-    transform: scale(0.98);
+.enter-window input:focus {
+    outline: none;
+    border-color: var(--dark-background-color);
 }
 
-.menu_button_card {
-    padding: 8px 14px;
-
-    font-family: inherit;
-    font-size: 14px;
-    color: var(--main-text-color);
-    text-shadow: var(--main-text-shadow-color);
-
-    background: var(--main-gradient-color);
-    border: var(--main-border-color);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: box-shadow 0.15s, transform 0.05s;
+.enter-window input[type="login"] {
+    grid-area: login;
 }
 
-.menu_button_card:hover {
-    color: #657bfa;
-    box-shadow: 0 0 10px #3a46c9;
-}
+.enter-window button {
+    font-size: 20px;
 
-.menu_button_card:active {
-    transform: scale(0.98);
-}
+    grid-area: button;
+    color: var(--main-background-color);
+    background-color: var(--dark-background-color);
 
-.simple_button_card {
-    display: block;
-    width: 10%;
-    margin-bottom: 10px;
-
-    margin: 1%;
-
-    font-family: Arial, sans-serif;
-
-    width: 75%;
-    height: 15%;
-
-    padding: 10px;
-
-    background: var(--main-gradient-color);
-
-    color: var(--main-text-color);
-    text-shadow: var(--main-text-shadow-color);
-
-    border: var(--main-border-color);
     border-radius: 10px;
-}
+    border: 1px solid var(--main-border-color);
 
-.enter_button_card {
-    display: block;
-    margin-bottom: 10px;
-
-    margin: 1% auto;
-
-    font-family: Arial, sans-serif;
-
-    width: 45%;
-    height: 45px;
-
-    padding: 10px;
-
-    background: var(--main-gradient-color);
-
-    color: var(--main-text-color);
-    text-shadow: var(--main-text-shadow-color);
-
-    border: var(--main-border-color);
-    border-radius: 10px;
-}
-
-.enter_button_card:hover {
-    color: #657bfa;
-    box-shadow: 0 0 10px #3a46c9;
-}
-
-.enter_button_card:active {
-    transform: scale(0.98);
+    height: auto;
+    width: auto;
 }
 
 
-.message {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-
-  padding: 10px 14px;
-  margin-bottom: 8px;
-
-  background: var(--main-background-color);
-  border: var(--main-border-color);
-  border-radius: 10px;
-  color: var(--main-text-color);
-  max-width: 70%;
-  word-wrap: break-word;
-}
-
-.message-meta {
-  font-size: 12px;
-  opacity: 0.7;
-  color: var(--main-text-color);
-}
-
-.message-text {
-  font-size: 14px;
-  line-height: 1.4;
-}
+/* Main slide */
